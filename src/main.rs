@@ -35,11 +35,9 @@ fn main() -> eframe::Result<()> {
         Box::new(move |cc| {
             // Create a new PolarsViewApp. If a filename is provided, load the data.
             Ok(Box::new(if args.filename.is_some() {
-                // Log debug information about the data filters.
-                DataFilters::debug(&args);
-
                 // Create data filters from command line arguments
                 let data_filters = DataFilters::new_with_args(&args);
+                dbg!(&data_filters);
 
                 // Load the data from the specified filename.
                 let future = DataFrameContainer::load_data_with_filters(data_filters);

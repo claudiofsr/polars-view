@@ -60,19 +60,6 @@ impl DataFilters {
         }
     }
 
-    /// Prints the debug information about the `DataFilters` based on the provided `Arguments`.
-    pub fn debug(args: &Arguments) {
-        let data_filters = DataFilters {
-            filename: args.filename.clone(),
-            query: args.query.clone(),
-            table_name: args.table_name.clone(),
-            csv_delimiter: args.delimiter.clone(),
-            sort: None,
-        };
-
-        dbg!(data_filters);
-    }
-
     /// Renders the query pane UI for configuring data filters.
     pub fn render_filter(&mut self, ui: &mut Ui) -> Option<DataFilters> {
         // Create mutable copies of the filter values to allow editing.
