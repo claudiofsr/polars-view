@@ -67,4 +67,4 @@ You can use Polars View in two primary ways:
 You can also specify a file and query directly from the command line:
 
 ```bash
-./target/release/polars-view -f /path/to/your/data.parquet -q "SELECT * FROM AllData WHERE column1 > 100"
+./target/release/polars-view /path/to/your/data.parquet -q "SELECT * FROM AllData WHERE column1 > 100"
