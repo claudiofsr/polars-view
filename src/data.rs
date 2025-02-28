@@ -330,7 +330,7 @@ impl DataFrameContainer {
             Some("parquet") => (Self::read_parquet(&filename).await?, "parquet".to_string()),
             Some("csv") => {
                 // Convert csv_delimiter string to u8 delimiter
-                let delimiter: u8 = match csv_delimiter.len() {
+                match csv_delimiter.len() {
                     1 => csv_delimiter.as_bytes()[0],
                     _ => {
                         let msg = "Error: The CSV delimiter must be a single character.";
@@ -338,31 +338,7 @@ impl DataFrameContainer {
                     }
                 };
 
-                // Set values that will be interpreted as missing/null.
-                let null_values: Vec<PlSmallStr> = NULL_VALUES.iter().map(|&s| s.into()).collect();
-
-                // Read CSV using the specified delimiter
-                let lazyframe = LazyCsvReader::new(&filename)
-                    .with_encoding(CsvEncoding::LossyUtf8) // Handle various encodings
-                    .with_try_parse_dates(true) // use regex
-                    .with_has_header(true) // Assume the first row is a header
-                    .with_separator(delimiter) // Set the delimiter
-                    .with_infer_schema_length(Some(200)) // Limit schema inference to the first 200 rows.
-                    .with_ignore_errors(true) // Ignore parsing errors
-                    .with_missing_is_null(true) // Treat missing values as null
-                    .with_null_values(Some(NullValues::AllColumns(null_values)))
-                    .finish()
-                    .map_err(|e| {
-                        format!(
-                            "Error reading CSV with delimiter '{}': {}",
-                            delimiter as char, e
-                        )
-                    })?;
-
-                (
-                    lazyframe.collect().map_err(|e| format!("Error: {}", e))?,
-                    "csv".to_string(),
-                )
+                (Self::read_csv(&filename).await?, "csv".to_string())
             }
             _ => {
                 let msg = format!("Unknown file type: {}", filename);
