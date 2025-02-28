@@ -420,11 +420,11 @@ impl DataFrameContainer {
             .with_nulls_last(false);
 
         // Sort the DataFrame using Polars
-        self.df = Arc::new(
-            self.df
-                .sort([col_name], sort_options)
-                .map_err(|e| format!("Polars sort error: {}", e))?,
-        );
+        self.df = self
+            .df
+            .sort([col_name], sort_options)
+            .map_err(|e| format!("Polars sort error: {}", e))?
+            .into();
         self.filters = filters; //Update filters
 
         Ok(self)
