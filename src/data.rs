@@ -3,7 +3,12 @@ use egui::{
     Align, CollapsingHeader, Color32, Frame, Grid, Hyperlink, Layout, Stroke, TextEdit, Ui, Vec2,
 };
 use polars::{prelude::*, sql::SQLContext};
-use std::{fs::File, future::Future, sync::Arc};
+use std::{
+    fs::File,
+    future::Future,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 pub type DataResult = Result<DataFrameContainer, String>;
 pub type DataFuture = Box<dyn Future<Output = DataResult> + Unpin + Send + 'static>;
@@ -26,7 +31,7 @@ pub enum SortState {
 #[derive(Debug, Default, Clone)]
 pub struct DataFilters {
     /// Optional filename of the data source.
-    pub filename: Option<String>,
+    pub filename: Option<PathBuf>,
     /// Table name for registering with Polars SQL Context.
     pub table_name: String,
     /// CSV delimiter.
@@ -40,8 +45,9 @@ pub struct DataFilters {
 impl DataFilters {
     /// Creates a new `DataFilters` instance from command line arguments.
     pub fn new_with_args(args: &Arguments) -> Self {
+        let full_path = args.filename.clone().and_then(|f| f.canonicalize().ok());
         DataFilters {
-            filename: args.filename.clone(),
+            filename: full_path,
             table_name: args.table_name.clone(),
             csv_delimiter: args.delimiter.clone(),
             query: args.query.clone(),
@@ -52,7 +58,7 @@ impl DataFilters {
     /// Renders the query pane UI for configuring data filters.
     pub fn render_filter(&mut self, ui: &mut Ui) -> Option<DataFilters> {
         // Create mutable copies of the filter values to allow editing.
-        let mut filename = self.filename.clone()?;
+        let mut filename = self.filename.clone()?.to_string_lossy().to_string();
         let mut table_name = self.table_name.clone();
         let mut csv_delimiter = self.csv_delimiter.clone();
         let mut query = self.query.clone()?;
@@ -109,7 +115,7 @@ impl DataFilters {
                                 && !query.trim().is_empty()
                             {
                                 result = Some(DataFilters {
-                                    filename: Some(filename.clone()),
+                                    filename: Some(PathBuf::from(filename.clone())),
                                     table_name: table_name.clone(),
                                     csv_delimiter: csv_delimiter.clone(),
                                     query: Some(query.clone()),
@@ -129,7 +135,7 @@ impl DataFilters {
             });
 
         // Update the filter values with the edited values.
-        self.filename = Some(filename);
+        self.filename = Some(PathBuf::from(filename));
         self.table_name = table_name;
         self.csv_delimiter = csv_delimiter;
         self.query = Some(query);
@@ -162,7 +168,7 @@ impl DataFilters {
 #[derive(Debug, Clone)]
 pub struct DataFrameContainer {
     /// The filename associated with the DataFrame.
-    pub filename: String,
+    pub path: PathBuf,
     /// The Polars DataFrame, wrapped in an Arc for shared ownership and thread-safe access.
     pub df: Arc<DataFrame>,
     /// Filters applied to the DataFrame.
@@ -175,23 +181,23 @@ impl DataFrameContainer {
     /// Loads data from a file (Parquet or CSV) using Polars.
     pub async fn load_data(filters: DataFilters) -> Result<Self, String> {
         dbg!(&filters);
-        let filename = filters.filename.clone().unwrap_or_default();
-        let filename = shellexpand::full(&filename)
-            .map_err(|err| err.to_string())?
-            .to_string();
+        let path = filters.filename.clone().unwrap_or_default();
+
+        let full_path = filters.filename.clone().and_then(|f| f.canonicalize().ok());
+        dbg!(&full_path);
 
         // Determine file type based on extension and load accordingly.
-        let (df, table_type) = match get_extension(&filename).as_deref() {
-            Some("parquet") => (Self::read_parquet(&filename).await?, "parquet".to_string()),
-            Some("csv") => (Self::read_csv(&filename).await?, "csv".to_string()),
+        let (df, table_type) = match get_extension(&path).as_deref() {
+            Some("parquet") => (Self::read_parquet(&path).await?, "parquet".to_string()),
+            Some("csv") => (Self::read_csv(&path).await?, "csv".to_string()),
             _ => {
-                let msg = format!("Unknown file type: {:#?}", filename);
+                let msg = format!("Unknown file type: {:#?}", path);
                 return Err(msg);
             }
         };
 
         Ok(Self {
-            filename,
+            path,
             df: Arc::new(df),
             filters,
             table_type,
@@ -208,7 +214,7 @@ impl DataFrameContainer {
     }
 
     /// Reads a Parquet file into a Polars DataFrame.
-    async fn read_parquet(filename: &str) -> Result<DataFrame, String> {
+    async fn read_parquet(filename: &Path) -> Result<DataFrame, String> {
         let file = File::open(filename).map_err(|e| format!("Error opening file: {}", e))?;
         let df = ParquetReader::new(file)
             .finish()
@@ -218,7 +224,7 @@ impl DataFrameContainer {
     }
 
     /// Attempts to read a CSV file with different delimiters until successful.
-    async fn read_csv(filename: &str) -> Result<DataFrame, String> {
+    async fn read_csv(filename: &Path) -> Result<DataFrame, String> {
         // Delimiters to attempt when reading CSV files.
         let delimiters = [b',', b';', b'|', b'\t'];
 
@@ -236,7 +242,7 @@ impl DataFrameContainer {
     }
 
     /// Attempts to read a CSV file using a specific delimiter.
-    async fn attempt_read_csv(filename: &str, delimiter: u8) -> Result<DataFrame, String> {
+    async fn attempt_read_csv(filename: &Path, delimiter: u8) -> Result<DataFrame, String> {
         dbg!(&filename, delimiter as char);
 
         // Set values that will be interpreted as missing/null.
@@ -307,10 +313,6 @@ impl DataFrameContainer {
             return Err("No query provided".to_string());
         };
 
-        let filename = shellexpand::full(&filename)
-            .map_err(|err| err.to_string())?
-            .to_string();
-
         // Load the DataFrame from the file
         let (df, table_type): (DataFrame, String) = match get_extension(&filename).as_deref() {
             Some("parquet") => (Self::read_parquet(&filename).await?, "parquet".to_string()),
@@ -327,7 +329,7 @@ impl DataFrameContainer {
                 (Self::read_csv(&filename).await?, "csv".to_string())
             }
             _ => {
-                let msg = format!("Unknown file type: {}", filename);
+                let msg = format!("Unknown file type: {:?}", filename);
                 return Err(msg);
             }
         };
@@ -344,7 +346,7 @@ impl DataFrameContainer {
             .map_err(|e| format!("DataFrame error: {}", e))?;
 
         Ok(Self {
-            filename,
+            path: filename,
             df: Arc::new(sql_df),
             filters,
             table_type,

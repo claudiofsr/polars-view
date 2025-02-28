@@ -14,7 +14,7 @@ use parquet::{
 };
 use polars::prelude::*;
 use rfd::AsyncFileDialog;
-use std::{fs::File, path::Path};
+use std::{fs::File, path::PathBuf};
 
 // Enum to represent file metadata, supporting Parquet and CSV
 pub enum FileMetadata {
@@ -37,13 +37,11 @@ pub struct CsvMetadataWrapper {
 impl FileMetadata {
     /// Creates a `FileMetadata` instance from a filename.
     pub fn from_filename(
-        filename: &str,
+        path: PathBuf,
         file_type: &str,
         schema: Option<Arc<Schema>>,
         row_count: Option<usize>,
     ) -> Result<Self, String> {
-        let path = Path::new(filename);
-
         match file_type {
             "parquet" => {
                 // Attempt to open the file.
@@ -354,11 +352,11 @@ impl DataFrameContainer {
 }
 
 /// Asynchronously opens a file dialog.
-pub async fn file_dialog() -> Result<String, String> {
+pub async fn file_dialog() -> Result<PathBuf, String> {
     let opt_file_handle = AsyncFileDialog::new().pick_file().await; // Open the file dialog.
 
     match opt_file_handle {
-        Some(file_handle) => Ok(file_handle.file_name()), // Return the filename if a file is selected.
-        None => Err("No file loaded.".to_string()),       // Return an error if no file is selected.
+        Some(file_handle) => Ok(file_handle.path().to_path_buf()), // Return the filename if a file is selected.
+        None => Err("No file loaded.".to_string()), // Return an error if no file is selected.
     }
 }

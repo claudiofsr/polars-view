@@ -24,7 +24,6 @@ eframe = { version = "0.31", features = ["persistence"] }
 rfd = { version ="0.15", features = ["file-handle-inner"] }
 tokio = { version = "1.43", features = ["rt", "sync", "rt-multi-thread"] }
 tracing-subscriber = "0.3"
-shellexpand = "3.1"
 parquet = "54.2"
 
 [dependencies.polars]

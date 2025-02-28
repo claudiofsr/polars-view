@@ -88,7 +88,7 @@ impl PolarsViewApp {
             Ok(data) => match data {
                 Ok(data) => {
                     // Data loaded successfully!
-                    let filename = data.filename.clone();
+                    let filename = data.path.clone();
                     dbg!(&filename);
 
                     // Update data filters
@@ -98,14 +98,14 @@ impl PolarsViewApp {
                     // Load metadata
                     self.metadata = match &*data.table_type {
                         "parquet" => {
-                            FileMetadata::from_filename(&filename, "parquet", None, None).ok()
+                            FileMetadata::from_filename(filename, "parquet", None, None).ok()
                         }
                         "csv" => {
                             // let schema = (*data.df.schema().as_ref()).clone();
                             let arc_schema = data.df.schema().clone();
                             let row_count = data.df.height();
                             FileMetadata::from_filename(
-                                &filename,
+                                filename,
                                 "csv",
                                 Some(arc_schema),
                                 Some(row_count),
@@ -178,16 +178,13 @@ impl eframe::App for PolarsViewApp {
         // Handle dropped files.
         if let Some(dropped_file) = ctx.input(|i| i.raw.dropped_files.last().cloned()) {
             if let Some(path) = &dropped_file.path {
-                // Load data from the dropped file.
-                if let Some(filename) = path.to_str() {
-                    // Update PolarsViewApp
-                    self.data_filters.filename = Some(filename.to_string());
-                    let filters = self.data_filters.clone();
-                    self.run_data_future(
-                        Box::new(Box::pin(DataFrameContainer::load_data(filters))),
-                        ctx,
-                    );
-                }
+                // Update PolarsViewApp
+                self.data_filters.filename = Some(path.to_path_buf());
+                let filters = self.data_filters.clone();
+                self.run_data_future(
+                    Box::new(Box::pin(DataFrameContainer::load_data(filters))),
+                    ctx,
+                );
             }
         }
 
@@ -212,7 +209,7 @@ impl eframe::App for PolarsViewApp {
                             // Open a file dialog to select a file.
                             if let Ok(filename) = self.runtime.block_on(file_dialog()) {
                                 // Update PolarsViewApp
-                                self.data_filters.filename = Some(filename.to_string());
+                                self.data_filters.filename = Some(filename);
                                 let filters = self.data_filters.clone();
                                 self.run_data_future(
                                     Box::new(Box::pin(DataFrameContainer::load_data(filters))),
@@ -354,7 +351,7 @@ impl eframe::App for PolarsViewApp {
             // Display the filename of the loaded data.
             ui.horizontal(|ui| match &*self.table {
                 Some(table) => {
-                    ui.label(format!("{:#?}", table.filename));
+                    ui.label(format!("{:#?}", table.path));
                 }
                 None => {
                     ui.label("no file set");

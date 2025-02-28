@@ -26,9 +26,8 @@ use std::path::Path;
 /// # Returns
 ///
 /// An `Option<String>` containing the lowercase file extension if found, otherwise `None`.
-pub fn get_extension(filename: &str) -> Option<String> {
-    Path::new(filename)
-        .extension() // Get the extension as an Option<&OsStr>
+pub fn get_extension(path: &Path) -> Option<String> {
+    path.extension() // Get the extension as an Option<&OsStr>
         .and_then(|ext| ext.to_str()) // Convert the extension to &str, returning None if the conversion fails
         .map(|ext| ext.to_lowercase()) // Convert the extension to lowercase for case-insensitive comparison
 }
@@ -56,28 +55,43 @@ mod tests {
 
     #[test]
     fn test_parquet_extension() {
-        assert_eq!(get_extension("data.parquet"), Some("parquet".to_string()));
-        assert_eq!(get_extension("DATA.PARQUET"), Some("parquet".to_string())); // Case-insensitive test
+        assert_eq!(
+            get_extension(Path::new("data.parquet")),
+            Some("parquet".to_string())
+        );
+        assert_eq!(
+            get_extension(Path::new("DATA.PARQUET")),
+            Some("parquet".to_string())
+        ); // Case-insensitive test
     }
 
     #[test]
     fn test_csv_extension() {
-        assert_eq!(get_extension("data.csv"), Some("csv".to_string()));
-        assert_eq!(get_extension("data.CSV"), Some("csv".to_string())); // Case-insensitive test
+        assert_eq!(
+            get_extension(Path::new("data.csv")),
+            Some("csv".to_string())
+        );
+        assert_eq!(
+            get_extension(Path::new("data.CSV")),
+            Some("csv".to_string())
+        ); // Case-insensitive test
     }
 
     #[test]
     fn test_no_extension() {
-        assert_eq!(get_extension("data"), None); // No extension
+        assert_eq!(get_extension(Path::new("data")), None); // No extension
     }
 
     #[test]
     fn test_empty_filename() {
-        assert_eq!(get_extension(""), None); // Empty filename
+        assert_eq!(get_extension(Path::new("")), None); // Empty filename
     }
 
     #[test]
     fn test_path_with_dots() {
-        assert_eq!(get_extension("path.to.file.txt"), Some("txt".to_string()));
+        assert_eq!(
+            get_extension(Path::new("path.to.file.txt")),
+            Some("txt".to_string())
+        );
     }
 }

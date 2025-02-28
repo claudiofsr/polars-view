@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::path::PathBuf;
 
 use crate::SQL_COMMANDS;
 
@@ -45,7 +46,7 @@ pub struct Arguments {
 
     /// Set the parquet filename.
     #[arg(help = "Path to the data file (Parquet or CSV)")]
-    pub filename: Option<String>,
+    pub filename: Option<PathBuf>,
 
     /// Set the query.
     #[arg(
