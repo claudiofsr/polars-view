@@ -7,8 +7,8 @@ use polars_view::{Arguments, DataFilters, DataFrameContainer, PolarsViewApp};
 cargo fmt
 cargo test -- --nocapture
 cargo run -- --help
-cargo run -- -f ~/Documents/Rust/projects/join_with_assignments/df_consolidacao_natureza_da_bcalc.parquet
-cargo run -- -f /home/claudio/Documents/Rust/projects/join_with_assignments/df_itens_de_docs_fiscais.csv
+cargo run -- ~/Documents/Rust/projects/join_with_assignments/df_consolidacao_natureza_da_bcalc.parquet
+cargo run -- /home/claudio/Documents/Rust/projects/join_with_assignments/df_itens_de_docs_fiscais.csv
 cargo doc --open
 cargo b -r && cargo install --path=.
 */

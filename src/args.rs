@@ -44,12 +44,7 @@ pub struct Arguments {
     pub delimiter: String,
 
     /// Set the parquet filename.
-    #[arg(
-        short,
-        long,
-        required = false,
-        help = "Path to the data file (Parquet or CSV)"
-    )]
+    #[arg(help = "Path to the data file (Parquet or CSV)")]
     pub filename: Option<String>,
 
     /// Set the query.
