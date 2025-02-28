@@ -23,7 +23,7 @@ pub enum SortState {
 }
 
 /// Holds filters to be applied to the data.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DataFilters {
     /// Optional filename of the data source.
     pub filename: Option<String>,
@@ -38,17 +38,6 @@ pub struct DataFilters {
 }
 
 impl DataFilters {
-    /// Creates a new `DataFilters` instance with a default configuration, including the filename.
-    pub fn new(filename: impl AsRef<str> + ToString) -> Self {
-        DataFilters {
-            filename: Some(filename.to_string()),
-            table_name: "AllData".to_string(),
-            csv_delimiter: ";".to_string(),
-            query: Some(SQL_COMMANDS[0].to_string()),
-            ..Default::default()
-        }
-    }
-
     /// Creates a new `DataFilters` instance from command line arguments.
     pub fn new_with_args(args: &Arguments) -> Self {
         DataFilters {
@@ -184,12 +173,12 @@ pub struct DataFrameContainer {
 
 impl DataFrameContainer {
     /// Loads data from a file (Parquet or CSV) using Polars.
-    pub async fn load_data(filename: impl AsRef<str>) -> Result<Self, String> {
+    pub async fn load_data(filters: DataFilters) -> Result<Self, String> {
+        dbg!(&filters);
+        let filename = filters.filename.clone().unwrap_or_default();
         let filename = shellexpand::full(&filename)
             .map_err(|err| err.to_string())?
             .to_string();
-
-        dbg!(&filename);
 
         // Determine file type based on extension and load accordingly.
         let (df, table_type) = match get_extension(&filename).as_deref() {
@@ -204,20 +193,17 @@ impl DataFrameContainer {
         Ok(Self {
             filename,
             df: Arc::new(df),
-            filters: DataFilters::default(),
+            filters,
             table_type,
         })
     }
 
     /// Loads data from a file (Parquet or CSV) using Polars and DataFilters.
-    pub async fn load_data_with_filters(filters: DataFilters) -> Result<Self, String> {
+    pub async fn load_data_with_query(filters: DataFilters) -> Result<Self, String> {
         if filters.query.is_some() {
             Self::load_data_with_sql(filters).await
         } else {
-            let filename = filters.filename.clone().unwrap_or_default();
-            let mut data = Self::load_data(filename).await?;
-            data.filters = filters;
-            Ok(data)
+            Self::load_data(filters).await
         }
     }
 

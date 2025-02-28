@@ -40,7 +40,7 @@ fn main() -> eframe::Result<()> {
                 dbg!(&data_filters);
 
                 // Load the data from the specified filename.
-                let future = DataFrameContainer::load_data_with_filters(data_filters);
+                let future = DataFrameContainer::load_data_with_query(data_filters);
 
                 // Create a new PolarsViewApp with the data loading future.
                 PolarsViewApp::new_with_future(cc, Box::new(Box::pin(future)))
