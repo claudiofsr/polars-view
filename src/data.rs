@@ -1,4 +1,4 @@
-use crate::{Arguments, SQL_COMMANDS, get_extension};
+use crate::{Arguments, SQL_COMMANDS, get_canonicalized_path, get_extension};
 use egui::{
     Align, CollapsingHeader, Color32, Frame, Grid, Hyperlink, Layout, Stroke, TextEdit, Ui, Vec2,
 };
@@ -45,7 +45,9 @@ pub struct DataFilters {
 impl DataFilters {
     /// Creates a new `DataFilters` instance from command line arguments.
     pub fn new_with_args(args: &Arguments) -> Self {
-        let full_path = args.filename.clone().and_then(|f| f.canonicalize().ok());
+        let full_path =
+            get_canonicalized_path(&args.filename).expect("Failed to get canonicalized path");
+
         DataFilters {
             filename: full_path,
             table_name: args.table_name.clone(),
@@ -270,7 +272,7 @@ impl DataFrameContainer {
         let df = lazyframe
             //.with_columns(cols()).apply(|col| round, GetOutput::from_type(DataType::String))
             .collect()
-            .map_err(|e| format!("{}", e))?;
+            .map_err(|e| e.to_string())?;
 
         /*
         let lz = lazyframe // Formatar colunas

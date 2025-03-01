@@ -356,7 +356,7 @@ pub async fn file_dialog() -> Result<PathBuf, String> {
     let opt_file_handle = AsyncFileDialog::new().pick_file().await; // Open the file dialog.
 
     match opt_file_handle {
-        Some(file_handle) => Ok(file_handle.path().to_path_buf()), // Return the filename if a file is selected.
+        Some(file_handle) => Ok(file_handle.path().to_path_buf()), // Return the path to a file.
         None => Err("No file loaded.".to_string()), // Return an error if no file is selected.
     }
 }

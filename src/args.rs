@@ -44,7 +44,7 @@ pub struct Arguments {
     #[arg(short, long, default_value = ";", help = "CSV delimiter character")]
     pub delimiter: String,
 
-    /// Set the parquet filename.
+    /// Set the csv or parquet filename.
     #[arg(help = "Path to the data file (Parquet or CSV)")]
     pub filename: Option<PathBuf>,
 

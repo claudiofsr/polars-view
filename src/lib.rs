@@ -13,7 +13,10 @@ use polars::{
     error::PolarsResult,
     prelude::{Column, DataType, RoundSeries},
 };
-use std::path::Path;
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 /// Extracts the file extension from a filename, converting it to lowercase.
 ///
@@ -30,6 +33,30 @@ pub fn get_extension(path: &Path) -> Option<String> {
     path.extension() // Get the extension as an Option<&OsStr>
         .and_then(|ext| ext.to_str()) // Convert the extension to &str, returning None if the conversion fails
         .map(|ext| ext.to_lowercase()) // Convert the extension to lowercase for case-insensitive comparison
+}
+
+/// Canonicalization means converting a path to its absolute, resolved form.
+/// This involves resolving symbolic links, removing relative components like "." and "..",
+/// and ensuring the path points to the actual location on the filesystem.
+///
+/// In essence, it's about getting the "true" and unambiguous path to a file or directory.
+///
+/// This function takes an optional PathBuf, and if it exists, attempts to canonicalize it.
+///
+/// # Arguments
+///
+/// * `filename`: An optional PathBuf representing the path to canonicalize.
+///
+/// # Returns
+///
+/// * `Result<Option<PathBuf>, io::Error>`:  Returns `Ok(Some(canonicalized_path))` if canonicalization succeeds.
+///   Returns `Ok(None)` if the input `filename` is `None`.
+///   Returns `Err(io::Error)` if an error occurs during canonicalization (e.g., file not found, permissions issues).
+pub fn get_canonicalized_path(filename: &Option<PathBuf>) -> Result<Option<PathBuf>, io::Error> {
+    // as_ref() converts Option<PathBuf> to Option<&PathBuf>
+    // map() applies the canonicalize() method to the &PathBuf if it exists
+    // transpose() swaps Option<Result<T, E>> to Result<Option<T>, E>
+    filename.as_ref().map(|f| f.canonicalize()).transpose()
 }
 
 /// Filters columns of type float64.
