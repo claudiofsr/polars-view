@@ -24,13 +24,14 @@ use std::{
 ///
 /// ### Arguments
 ///
-/// * `path` - A string slice representing the path.
+/// * `path` - A reference to a type that can be represented as a `Path`.
 ///
 /// ### Returns
 ///
 /// An `Option<String>` containing the lowercase file extension if found, otherwise `None`.
-pub fn get_extension(path: &Path) -> Option<String> {
-    path.extension() // Get the extension as an Option<&OsStr>
+pub fn get_extension(path: impl AsRef<Path>) -> Option<String> {
+    path.as_ref() // Convert the path to a &Path
+        .extension() // Get the extension as an Option<&OsStr>
         .and_then(|ext| ext.to_str()) // Convert the extension to &str, returning None if the conversion fails
         .map(|ext| ext.to_lowercase()) // Convert the extension to lowercase for case-insensitive comparison
 }
@@ -77,48 +78,43 @@ pub fn round_float64_columns(col: Column, decimals: u32) -> PolarsResult<Option<
 }
 
 #[cfg(test)]
-mod tests {
+mod extension_tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
-    fn test_parquet_extension() {
-        assert_eq!(
-            get_extension(Path::new("data.parquet")),
-            Some("parquet".to_string())
-        );
-        assert_eq!(
-            get_extension(Path::new("DATA.PARQUET")),
-            Some("parquet".to_string())
-        ); // Case-insensitive test
+    fn test_get_extension_with_extension() {
+        let path = PathBuf::from("myfile.txt");
+        assert_eq!(get_extension(&path), Some("txt".to_string()));
+
+        let path = PathBuf::from("myfile.TXT");
+        assert_eq!(get_extension(&path), Some("txt".to_string()));
+
+        let path = PathBuf::from("MYFILE.JPEG");
+        assert_eq!(get_extension(&path), Some("jpeg".to_string()));
     }
 
     #[test]
-    fn test_csv_extension() {
-        assert_eq!(
-            get_extension(Path::new("data.csv")),
-            Some("csv".to_string())
-        );
-        assert_eq!(
-            get_extension(Path::new("data.CSV")),
-            Some("csv".to_string())
-        ); // Case-insensitive test
+    fn test_get_extension_without_extension() {
+        let path = PathBuf::from("myfile");
+        assert_eq!(get_extension(&path), None);
     }
 
     #[test]
-    fn test_no_extension() {
-        assert_eq!(get_extension(Path::new("data")), None); // No extension
+    fn test_get_extension_hidden_file() {
+        let path = PathBuf::from(".hiddenfile");
+        assert_eq!(get_extension(&path), None); // Or Some("hiddenfile") depending on desired behavior
     }
 
     #[test]
-    fn test_empty_path() {
-        assert_eq!(get_extension(Path::new("")), None); // Empty path
+    fn test_get_extension_multiple_dots() {
+        let path = PathBuf::from("myfile.tar.gz");
+        assert_eq!(get_extension(&path), Some("gz".to_string()));
     }
 
     #[test]
-    fn test_path_with_dots() {
-        assert_eq!(
-            get_extension(Path::new("path.to.file.txt")),
-            Some("txt".to_string())
-        );
+    fn test_get_extension_empty_path() {
+        let path = PathBuf::from("");
+        assert_eq!(get_extension(&path), None);
     }
 }

@@ -4,6 +4,7 @@ use egui::{
 };
 use polars::{prelude::*, sql::SQLContext};
 use std::{
+    fmt::Debug,
     fs::File,
     future::Future,
     path::{Path, PathBuf},
@@ -183,23 +184,25 @@ impl DataFrameContainer {
     /// Loads data from a file (Parquet or CSV) using Polars.
     pub async fn load_data(filters: DataFilters) -> Result<Self, String> {
         dbg!(&filters);
-        let path = filters.path.clone().unwrap_or_default();
 
-        let full_path = filters.path.clone().and_then(|f| f.canonicalize().ok());
+        let full_path: PathBuf = get_canonicalized_path(&filters.path)
+            .map_err(|e| format!("Failed to get the absolute path: {}", e))?
+            .ok_or_else(|| "No path provided to load.".to_string())?;
+
         dbg!(&full_path);
 
         // Determine file type based on extension and load accordingly.
-        let (df, table_type) = match get_extension(&path).as_deref() {
-            Some("parquet") => (Self::read_parquet(&path).await?, "parquet".to_string()),
-            Some("csv") => (Self::read_csv(&path).await?, "csv".to_string()),
+        let (df, table_type) = match get_extension(&full_path).as_deref() {
+            Some("parquet") => (Self::read_parquet(&full_path).await?, "parquet".to_string()),
+            Some("csv") => (Self::read_csv(&full_path).await?, "csv".to_string()),
             _ => {
-                let msg = format!("Unknown file type: {:#?}", path);
+                let msg = format!("Unknown file type: {:#?}", full_path);
                 return Err(msg);
             }
         };
 
         Ok(Self {
-            path,
+            path: full_path,
             df: Arc::new(df),
             filters,
             table_type,
@@ -216,7 +219,7 @@ impl DataFrameContainer {
     }
 
     /// Reads a Parquet file into a Polars DataFrame.
-    async fn read_parquet(path: &Path) -> Result<DataFrame, String> {
+    async fn read_parquet(path: impl AsRef<Path>) -> Result<DataFrame, String> {
         let file = File::open(path).map_err(|e| format!("Error opening file: {}", e))?;
         let df = ParquetReader::new(file)
             .finish()
@@ -226,12 +229,12 @@ impl DataFrameContainer {
     }
 
     /// Attempts to read a CSV file with different delimiters until successful.
-    async fn read_csv(path: &Path) -> Result<DataFrame, String> {
+    async fn read_csv(path: impl AsRef<Path> + Debug) -> Result<DataFrame, String> {
         // Delimiters to attempt when reading CSV files.
         let delimiters = [b',', b';', b'|', b'\t'];
 
         for delimiter in delimiters {
-            let result_df = Self::attempt_read_csv(path, delimiter).await;
+            let result_df = Self::attempt_read_csv(&path, delimiter).await;
 
             if let Ok(df) = result_df {
                 return Ok(df); // Return the DataFrame on success
@@ -244,7 +247,10 @@ impl DataFrameContainer {
     }
 
     /// Attempts to read a CSV file using a specific delimiter.
-    async fn attempt_read_csv(path: &Path, delimiter: u8) -> Result<DataFrame, String> {
+    async fn attempt_read_csv(
+        path: impl AsRef<Path> + Debug,
+        delimiter: u8,
+    ) -> Result<DataFrame, String> {
         dbg!(&path, delimiter as char);
 
         // Set values that will be interpreted as missing/null.
