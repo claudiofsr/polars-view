@@ -18,15 +18,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Extracts the file extension from a filename, converting it to lowercase.
+/// Extracts the file extension from a path, converting it to lowercase.
 ///
 /// If no extension is found, returns `None`.
 ///
-/// # Arguments
+/// ### Arguments
 ///
-/// * `filename` - A string slice representing the filename.
+/// * `path` - A string slice representing the path.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// An `Option<String>` containing the lowercase file extension if found, otherwise `None`.
 pub fn get_extension(path: &Path) -> Option<String> {
@@ -43,20 +43,20 @@ pub fn get_extension(path: &Path) -> Option<String> {
 ///
 /// This function takes an optional PathBuf, and if it exists, attempts to canonicalize it.
 ///
-/// # Arguments
+/// ### Arguments
 ///
-/// * `filename`: An optional PathBuf representing the path to canonicalize.
+/// * `path`: An optional PathBuf representing the path to canonicalize.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<Option<PathBuf>, io::Error>`:  Returns `Ok(Some(canonicalized_path))` if canonicalization succeeds.
-///   Returns `Ok(None)` if the input `filename` is `None`.
+///   Returns `Ok(None)` if the input `path` is `None`.
 ///   Returns `Err(io::Error)` if an error occurs during canonicalization (e.g., file not found, permissions issues).
-pub fn get_canonicalized_path(filename: &Option<PathBuf>) -> Result<Option<PathBuf>, io::Error> {
-    // as_ref() converts Option<PathBuf> to Option<&PathBuf>
+pub fn get_canonicalized_path(path: &Option<PathBuf>) -> Result<Option<PathBuf>, io::Error> {
+    // as_ref() converts &Option<PathBuf> to Option<&PathBuf>
     // map() applies the canonicalize() method to the &PathBuf if it exists
     // transpose() swaps Option<Result<T, E>> to Result<Option<T>, E>
-    filename.as_ref().map(|f| f.canonicalize()).transpose()
+    path.as_ref().map(|f| f.canonicalize()).transpose()
 }
 
 /// Filters columns of type float64.
@@ -110,8 +110,8 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_filename() {
-        assert_eq!(get_extension(Path::new("")), None); // Empty filename
+    fn test_empty_path() {
+        assert_eq!(get_extension(Path::new("")), None); // Empty path
     }
 
     #[test]

@@ -44,9 +44,9 @@ pub struct Arguments {
     #[arg(short, long, default_value = ";", help = "CSV delimiter character")]
     pub delimiter: String,
 
-    /// Set the csv or parquet filename.
+    /// Set the csv or parquet path.
     #[arg(help = "Path to the data file (Parquet or CSV)")]
-    pub filename: Option<PathBuf>,
+    pub path: Option<PathBuf>,
 
     /// Set the query.
     #[arg(
@@ -54,7 +54,7 @@ pub struct Arguments {
         long,
         default_value = SQL_COMMANDS[0],
         help = "SQL query to apply to the data",
-        requires = "filename"
+        requires = "path"
     )]
     pub query: Option<String>,
 

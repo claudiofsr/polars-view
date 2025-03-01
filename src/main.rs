@@ -33,19 +33,20 @@ fn main() -> eframe::Result<()> {
         "PolarsView",
         options,
         Box::new(move |cc| {
-            // Create a new PolarsViewApp. If a filename is provided, load the data.
-            Ok(Box::new(if args.filename.is_some() {
+            // Create a new PolarsViewApp. If a path is provided, load the data.
+            Ok(Box::new(if args.path.is_some() {
                 // Create data filters from command line arguments
                 let data_filters = DataFilters::new_with_args(&args);
                 dbg!(&data_filters);
 
-                // Load the data from the specified filename.
+                // Load the data from the specified path.
                 let future = DataFrameContainer::load_data(data_filters);
 
                 // Create a new PolarsViewApp with the data loading future.
                 PolarsViewApp::new_with_future(cc, Box::new(Box::pin(future)))
             } else {
-                PolarsViewApp::new(cc) // Create a new PolarsViewApp without loading data.
+                // Create a new PolarsViewApp without loading data.
+                PolarsViewApp::new(cc)
             }))
         }),
     )

@@ -35,8 +35,8 @@ pub struct CsvMetadataWrapper {
 }
 
 impl FileMetadata {
-    /// Creates a `FileMetadata` instance from a filename.
-    pub fn from_filename(
+    /// Creates a `FileMetadata` instance from a path.
+    pub fn from_path(
         path: PathBuf,
         file_type: &str,
         schema: Option<Arc<Schema>>,
