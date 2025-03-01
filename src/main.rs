@@ -36,7 +36,7 @@ fn main() -> eframe::Result<()> {
             // Create a new PolarsViewApp. If a path is provided, load the data.
             Ok(Box::new(if args.path.is_some() {
                 // Create data filters from command line arguments
-                let data_filters = DataFilters::new_with_args(&args);
+                let data_filters = DataFilters::new(&args);
                 dbg!(&data_filters);
 
                 // Load the data from the specified path.

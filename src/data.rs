@@ -44,7 +44,7 @@ pub struct DataFilters {
 
 impl DataFilters {
     /// Creates a new `DataFilters` instance from command line arguments.
-    pub fn new_with_args(args: &Arguments) -> Self {
+    pub fn new(args: &Arguments) -> Self {
         let full_path =
             get_canonicalized_path(&args.path).expect("Failed to get canonicalized path!");
 
