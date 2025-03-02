@@ -319,18 +319,28 @@ impl DataFrameContainer {
 
     /// Attempts to read a CSV file with different delimiters until successful.
     async fn read_csv(path: impl AsRef<Path> + Debug) -> Result<(DataFrame, Option<u8>), String> {
-        // Delimiters to attempt when reading CSV files.
+        // Common delimiters to attempt when reading CSV files.
         let delimiters = [b',', b';', b'|', b'\t'];
+        // Number of rows to read for delimiter detection.
+        // Using `Some(200)` helps quickly determine if a delimiter is viable without processing the entire file.
+        let n_rows = Some(200);
 
         for delimiter in delimiters {
-            let result_df = Self::attempt_read_csv(&path, delimiter).await;
+            // Attempt to read the CSV with the current delimiter, limiting the number of rows for faster initial parsing.
+            let result_df = Self::attempt_read_csv(&path, delimiter, n_rows).await;
 
-            if let Ok(df) = result_df {
-                // Return the DataFrame and delimiter on success
-                return Ok((df, Some(delimiter)));
+            if result_df.is_ok() {
+                // Delimiter seems promising. Now read the entire file.
+                let result_df = Self::attempt_read_csv(&path, delimiter, None).await;
+
+                if let Ok(df) = result_df {
+                    // Successfully read the entire CSV file. Return the DataFrame and the delimiter used.
+                    return Ok((df, Some(delimiter)));
+                }
             }
         }
 
+        // All delimiters failed.
         let msg = "Failed to read CSV with common delimiters or inconsistent data.";
         eprintln!("{msg}");
         Err(msg.to_string())
@@ -340,6 +350,7 @@ impl DataFrameContainer {
     async fn attempt_read_csv(
         path: impl AsRef<Path> + Debug,
         delimiter: u8,
+        n_rows: Option<usize>,
     ) -> Result<DataFrame, String> {
         dbg!(&path, delimiter as char);
 
@@ -356,6 +367,7 @@ impl DataFrameContainer {
             .with_ignore_errors(true) // Ignore parsing errors
             .with_missing_is_null(true) // Treat missing values as null
             .with_null_values(Some(NullValues::AllColumns(null_values)))
+            .with_n_rows(n_rows)
             .finish()
             .map_err(|e| {
                 format!(
