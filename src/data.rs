@@ -181,35 +181,28 @@ impl DataFilters {
 /// Contains a DataFrame along with associated metadata and filters.
 #[derive(Debug, Clone)]
 pub struct DataFrameContainer {
-    /// The path associated with the DataFrame.
-    pub path: PathBuf,
     /// The Polars DataFrame, wrapped in an Arc for shared ownership and thread-safe access.
     pub df: Arc<DataFrame>,
-    /// Filters applied to the DataFrame.
-    pub filters: DataFilters,
     /// String with "parquet" or "csv"
     pub extension: String,
+    /// Filters applied to the DataFrame.
+    pub filters: DataFilters,
 }
 
 impl DataFrameContainer {
     /// Loads data from a file (Parquet or CSV).
     pub async fn load_data(mut filters: DataFilters) -> Result<Self, String> {
-        let absolute_path = filters.absolute_path.clone();
-
         let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
 
         Ok(Self {
-            path: absolute_path,
             df: Arc::new(df),
-            filters,
             extension,
+            filters,
         })
     }
 
     /// Loads data from a file (Parquet or CSV) And applies SQL query using Polars.
     pub async fn load_data_with_sql(mut filters: DataFilters) -> Result<Self, String> {
-        let absolute_path = filters.absolute_path.clone();
-
         let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
 
         let df_new = match &filters.query {
@@ -237,10 +230,9 @@ impl DataFrameContainer {
         };
 
         Ok(Self {
-            path: absolute_path,
             df: Arc::new(df_new),
-            filters,
             extension,
+            filters,
         })
     }
 

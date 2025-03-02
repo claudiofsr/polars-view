@@ -14,7 +14,9 @@ use tokio::sync::oneshot::{self, error::TryRecvError};
 
 /// The main application struct for PolarsView.
 pub struct PolarsViewApp {
-    /// The `DataFrameContainer` holds the loaded data (Parquet, CSV, etc.).  Using `Arc` for shared ownership and thread-safe access.
+    /// The `DataFrameContainer` holds the loaded data (Parquet, CSV, etc.).  
+    ///
+    /// Using `Arc` for shared ownership and thread-safe access.
     pub table: Arc<Option<DataFrameContainer>>,
     /// Component for managing data filters (SQL queries, sorting, etc.).
     pub data_filters: DataFilters,
@@ -28,7 +30,9 @@ pub struct PolarsViewApp {
     /// Channel for receiving the result of asynchronous data loading.
     pipe: Option<tokio::sync::oneshot::Receiver<Result<DataFrameContainer, String>>>,
 
-    /// Vector of active asynchronous tasks.  Used to prevent the application from hanging if a task fails.
+    /// Vector of active asynchronous tasks.
+    ///
+    /// Used to prevent the application from hanging if a task fails.
     tasks: Vec<tokio::task::JoinHandle<()>>,
 }
 
@@ -89,15 +93,14 @@ impl PolarsViewApp {
             Ok(data) => match data {
                 Ok(data) => {
                     // Data loaded successfully!
-                    let path = data.path.clone();
-                    dbg!(&path);
+                    let path = data.filters.absolute_path.clone();
 
                     // Update data filters
                     self.data_filters = data.filters.clone();
                     dbg!(&data.filters);
 
                     // Load metadata
-                    self.metadata = match &*data.extension {
+                    self.metadata = match data.extension.as_str() {
                         "parquet" => FileMetadata::from_path(path, "parquet", None, None).ok(),
                         "csv" => {
                             // let schema = (*data.df.schema().as_ref()).clone();
@@ -347,7 +350,7 @@ impl eframe::App for PolarsViewApp {
             // Display the path of the loaded data.
             ui.horizontal(|ui| match &*self.table {
                 Some(table) => {
-                    ui.label(format!("{:#?}", table.path));
+                    ui.label(format!("{:#?}", table.filters.absolute_path));
                 }
                 None => {
                     ui.label("no file set");
