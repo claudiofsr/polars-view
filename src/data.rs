@@ -204,8 +204,12 @@ impl DataFrameContainer {
                 "parquet".to_string(),
             ),
             Some("csv") => (Self::read_csv(&absolute_path).await?, "csv".to_string()),
-            _ => {
-                let msg = format!("Unknown file type: {:#?}", absolute_path);
+            Some(ext) => {
+                let msg = format!("File: {:?}\nUnknown extension: {}", absolute_path, ext);
+                return Err(msg);
+            }
+            None => {
+                let msg = format!("File: {:?}\nExtension not found!", absolute_path);
                 return Err(msg);
             }
         };
