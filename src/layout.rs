@@ -179,10 +179,8 @@ impl eframe::App for PolarsViewApp {
                 dbg!(&data_filters);
                 // Update PolarsViewApp
                 self.data_filters = data_filters.clone();
-                self.run_data_future(
-                    Box::new(Box::pin(DataFrameContainer::load_data(data_filters))),
-                    ctx,
-                );
+                let future = DataFrameContainer::load_data(data_filters);
+                self.run_data_future(Box::new(Box::pin(future)), ctx);
             }
         }
 
