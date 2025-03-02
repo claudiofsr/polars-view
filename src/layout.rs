@@ -17,7 +17,7 @@ pub struct PolarsViewApp {
     /// The `DataFrameContainer` holds the loaded data (Parquet, CSV, etc.).  
     ///
     /// Using `Arc` for shared ownership and thread-safe access.
-    pub table: Arc<Option<DataFrameContainer>>,
+    pub df: Arc<Option<DataFrameContainer>>,
     /// Component for managing data filters (SQL queries, sorting, etc.).
     pub data_filters: DataFilters,
     /// Metadata extracted from the loaded file (if available).
@@ -39,7 +39,7 @@ pub struct PolarsViewApp {
 impl Default for PolarsViewApp {
     fn default() -> Self {
         Self {
-            table: Arc::new(None),
+            df: Arc::new(None),
             data_filters: DataFilters::default(),
             runtime: tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -112,7 +112,7 @@ impl PolarsViewApp {
                         _ => None,
                     };
 
-                    self.table = Arc::new(Some(data));
+                    self.df = Arc::new(Some(data));
                     false // Data loading complete.
                 }
                 Err(msg) => {
@@ -348,7 +348,7 @@ impl eframe::App for PolarsViewApp {
 
         TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             // Display the path of the loaded data.
-            ui.horizontal(|ui| match &*self.table {
+            ui.horizontal(|ui| match &*self.df {
                 Some(table) => {
                     ui.label(format!("{:#?}", table.filters.absolute_path));
                 }
@@ -362,7 +362,7 @@ impl eframe::App for PolarsViewApp {
         CentralPanel::default().show(ctx, |ui| {
             warn_if_debug_build(ui); // Show a warning in debug builds.
 
-            match self.table.as_ref().clone() {
+            match self.df.as_ref().clone() {
                 Some(parquet_data) if parquet_data.df.width() > 0 => {
                     // Data loaded successfully, display the table.
                     ScrollArea::horizontal().show(ui, |ui| {
@@ -384,7 +384,7 @@ impl eframe::App for PolarsViewApp {
             // Show a loading spinner if data is currently being loaded.
             if self.check_data_pending() {
                 ui.disable(); // Disable UI interaction while loading.
-                if self.table.as_ref().is_none() {
+                if self.df.as_ref().is_none() {
                     ui.centered_and_justified(|ui| {
                         // Show spinner while loading initial data.
                         ui.spinner();
