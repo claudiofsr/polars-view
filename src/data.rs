@@ -60,6 +60,16 @@ impl DataFilters {
         }
     }
 
+    pub fn set_path(absolute_path: PathBuf) -> Self {
+        DataFilters {
+            absolute_path,
+            table_name: "AllData".to_string(),
+            csv_delimiter: ";".to_string(),
+            query: Some(SQL_COMMANDS[0].to_string()),
+            sort: None,
+        }
+    }
+
     /// Extracts the file extension from the absolute path, converting it to lowercase for
     /// case-insensitive comparison.
     pub fn get_extension(&self) -> Option<String> {
@@ -192,6 +202,7 @@ pub struct DataFrameContainer {
 impl DataFrameContainer {
     /// Loads data from a file (Parquet or CSV).
     pub async fn load_data(mut filters: DataFilters) -> Result<Self, String> {
+        dbg!(&filters);
         let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
 
         Ok(Self {
@@ -203,6 +214,7 @@ impl DataFrameContainer {
 
     /// Loads data from a file (Parquet or CSV) And applies SQL query using Polars.
     pub async fn load_data_with_sql(mut filters: DataFilters) -> Result<Self, String> {
+        dbg!(&filters);
         let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
 
         let df_new = match &filters.query {

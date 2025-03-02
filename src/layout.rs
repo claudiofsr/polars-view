@@ -175,12 +175,12 @@ impl eframe::App for PolarsViewApp {
         // Handle dropped files.
         if let Some(dropped_file) = ctx.input(|i| i.raw.dropped_files.last().cloned()) {
             if let Some(path) = &dropped_file.path {
+                let data_filters = DataFilters::set_path(path.clone());
+                dbg!(&data_filters);
                 // Update PolarsViewApp
-                self.data_filters.absolute_path = path.to_path_buf();
+                self.data_filters = data_filters.clone();
                 self.run_data_future(
-                    Box::new(Box::pin(DataFrameContainer::load_data(
-                        self.data_filters.clone(),
-                    ))),
+                    Box::new(Box::pin(DataFrameContainer::load_data(data_filters))),
                     ctx,
                 );
             }
