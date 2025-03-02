@@ -172,7 +172,7 @@ impl eframe::App for PolarsViewApp {
         if let Some(dropped_file) = ctx.input(|i| i.raw.dropped_files.last().cloned()) {
             if let Some(path) = &dropped_file.path {
                 // Update PolarsViewApp
-                self.data_filters.path = Some(path.to_path_buf());
+                self.data_filters.absolute_path = path.to_path_buf();
                 let filters = self.data_filters.clone();
                 self.run_data_future(
                     Box::new(Box::pin(DataFrameContainer::load_data(filters))),
@@ -202,7 +202,7 @@ impl eframe::App for PolarsViewApp {
                             // Open a file dialog to select a file.
                             if let Ok(path) = self.runtime.block_on(file_dialog()) {
                                 // Update PolarsViewApp
-                                self.data_filters.path = Some(path);
+                                self.data_filters.absolute_path = path;
                                 let filters = self.data_filters.clone();
                                 self.run_data_future(
                                     Box::new(Box::pin(DataFrameContainer::load_data(filters))),

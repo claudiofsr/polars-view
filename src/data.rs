@@ -1,4 +1,4 @@
-use crate::{Arguments, SQL_COMMANDS, get_canonicalized_path, get_extension};
+use crate::{Arguments, SQL_COMMANDS};
 use egui::{
     Align, CollapsingHeader, Color32, Frame, Grid, Hyperlink, Layout, Stroke, TextEdit, Ui, Vec2,
 };
@@ -31,8 +31,8 @@ pub enum SortState {
 /// Holds filters to be applied to the data.
 #[derive(Debug, Default, Clone)]
 pub struct DataFilters {
-    /// Optional path of the data source.
-    pub path: Option<PathBuf>,
+    /// Absolute path of the data source.
+    pub absolute_path: PathBuf,
     /// Table name for registering with Polars SQL Context.
     pub table_name: String,
     /// CSV delimiter.
@@ -45,12 +45,14 @@ pub struct DataFilters {
 
 impl DataFilters {
     /// Creates a new `DataFilters` instance from command line arguments.
-    pub fn new(args: &Arguments) -> Self {
-        let full_path =
-            get_canonicalized_path(&args.path).expect("Failed to get canonicalized path!");
+    pub fn new(args: &Arguments, path: &Path) -> Self {
+        let msg = format!("Failed to get the absolute path from: {:#?}", path);
+
+        // Returns the canonical, absolute form of the path.
+        let absolute_path = path.canonicalize().expect(&msg);
 
         DataFilters {
-            path: full_path,
+            absolute_path,
             table_name: args.table_name.clone(),
             csv_delimiter: args.delimiter.clone(),
             query: args.query.clone(),
@@ -58,10 +60,18 @@ impl DataFilters {
         }
     }
 
+    /// Extracts the file extension from a path, converting it to lowercase.
+    pub fn get_extension(&self) -> Option<String> {
+        self.absolute_path
+            .extension() // Get the extension as an Option<&OsStr>
+            .and_then(|ext| ext.to_str()) // Convert the extension to &str, returning None if the conversion fails
+            .map(|ext| ext.to_lowercase()) // Convert the extension to lowercase for case-insensitive comparison
+    }
+
     /// Renders the query pane UI for configuring data filters.
     pub fn render_filter(&mut self, ui: &mut Ui) -> Option<DataFilters> {
         // Create mutable copies of the filter values to allow editing.
-        let mut path = self.path.clone()?.to_string_lossy().to_string();
+        let mut path_str = self.absolute_path.to_string_lossy().to_string();
         let mut table_name = self.table_name.clone();
         let mut csv_delimiter = self.csv_delimiter.clone();
         let mut query = self.query.clone()?;
@@ -82,7 +92,7 @@ impl DataFilters {
             |ui| {
                 grid.show(ui, |ui| {
                     ui.label("path:");
-                    let path_edit = TextEdit::singleline(&mut path).desired_width(width_max);
+                    let path_edit = TextEdit::singleline(&mut path_str).desired_width(width_max);
                     ui.add(path_edit)
                         .on_hover_text("Enter path and press the Apply button...");
                     ui.end_row();
@@ -112,13 +122,13 @@ impl DataFilters {
                     ui.with_layout(Layout::top_down(Align::Center), |ui| {
                         if ui.button("Apply SQL Commands").clicked() {
                             // Only create and return DataFilters if the required fields are not empty.
-                            if !path.trim().is_empty()
+                            if !path_str.trim().is_empty()
                                 && !table_name.trim().is_empty()
                                 && !csv_delimiter.trim().is_empty()
                                 && !query.trim().is_empty()
                             {
                                 result = Some(DataFilters {
-                                    path: Some(PathBuf::from(path.clone())),
+                                    absolute_path: PathBuf::from(path_str.clone()),
                                     table_name: table_name.clone(),
                                     csv_delimiter: csv_delimiter.clone(),
                                     query: Some(query.clone()),
@@ -138,7 +148,7 @@ impl DataFilters {
             });
 
         // Update the filter values with the edited values.
-        self.path = Some(PathBuf::from(path));
+        self.absolute_path = PathBuf::from(path_str);
         self.table_name = table_name;
         self.csv_delimiter = csv_delimiter;
         self.query = Some(query);
@@ -185,24 +195,23 @@ impl DataFrameContainer {
     pub async fn load_data(filters: DataFilters) -> Result<Self, String> {
         dbg!(&filters);
 
-        let full_path: PathBuf = get_canonicalized_path(&filters.path)
-            .map_err(|e| format!("Failed to get the absolute path: {}", e))?
-            .ok_or_else(|| "No path provided to load.".to_string())?;
-
-        dbg!(&full_path);
+        let absolute_path = &filters.absolute_path;
 
         // Determine file type based on extension and load accordingly.
-        let (df, table_type) = match get_extension(&full_path).as_deref() {
-            Some("parquet") => (Self::read_parquet(&full_path).await?, "parquet".to_string()),
-            Some("csv") => (Self::read_csv(&full_path).await?, "csv".to_string()),
+        let (df, table_type) = match filters.get_extension().as_deref() {
+            Some("parquet") => (
+                Self::read_parquet(absolute_path).await?,
+                "parquet".to_string(),
+            ),
+            Some("csv") => (Self::read_csv(&absolute_path).await?, "csv".to_string()),
             _ => {
-                let msg = format!("Unknown file type: {:#?}", full_path);
+                let msg = format!("Unknown file type: {:#?}", absolute_path);
                 return Err(msg);
             }
         };
 
         Ok(Self {
-            path: full_path,
+            path: absolute_path.clone(),
             df: Arc::new(df),
             filters,
             table_type,
@@ -308,22 +317,22 @@ impl DataFrameContainer {
     pub async fn load_data_with_sql(filters: DataFilters) -> Result<Self, String> {
         dbg!(&filters);
 
-        // Extract required parameters from filters
-        let Some(path) = filters.path.clone() else {
-            return Err("No path".to_string());
-        };
+        let absolute_path = &filters.absolute_path;
 
-        let table_name = filters.table_name.clone();
+        let table_name = &filters.table_name;
 
-        let csv_delimiter = filters.csv_delimiter.clone();
+        let csv_delimiter = &filters.csv_delimiter;
 
         let Some(query) = &filters.query else {
             return Err("No query provided".to_string());
         };
 
         // Load the DataFrame from the file
-        let (df, table_type): (DataFrame, String) = match get_extension(&path).as_deref() {
-            Some("parquet") => (Self::read_parquet(&path).await?, "parquet".to_string()),
+        let (df, table_type): (DataFrame, String) = match filters.get_extension().as_deref() {
+            Some("parquet") => (
+                Self::read_parquet(&absolute_path).await?,
+                "parquet".to_string(),
+            ),
             Some("csv") => {
                 // Convert csv_delimiter string to u8 delimiter
                 match csv_delimiter.len() {
@@ -334,17 +343,21 @@ impl DataFrameContainer {
                     }
                 };
 
-                (Self::read_csv(&path).await?, "csv".to_string())
+                (Self::read_csv(&absolute_path).await?, "csv".to_string())
             }
-            _ => {
-                let msg = format!("Unknown file type: {:?}", path);
+            Some(ext) => {
+                let msg = format!("File: {:?}\nUnknown extension: {}", absolute_path, ext);
+                return Err(msg);
+            }
+            None => {
+                let msg = format!("File: {:?}\nExtension not found!", absolute_path);
                 return Err(msg);
             }
         };
 
         // Create a SQL context and register the DataFrame
         let mut ctx = SQLContext::new();
-        ctx.register(&table_name, df.lazy());
+        ctx.register(table_name, df.lazy());
 
         // Execute the query and collect the results
         let sql_df: DataFrame = ctx
@@ -354,7 +367,7 @@ impl DataFrameContainer {
             .map_err(|e| format!("DataFrame error: {}", e))?;
 
         Ok(Self {
-            path,
+            path: absolute_path.clone(),
             df: Arc::new(sql_df),
             filters,
             table_type,
