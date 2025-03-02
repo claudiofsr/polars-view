@@ -57,7 +57,8 @@ impl PolarsViewApp {
         Default::default()
     }
 
-    /// Creates a new `PolarsViewApp` with a pre-existing `DataFuture`.  Used for asynchronous loading when the path is known in advance.
+    /// Creates a new `PolarsViewApp` with a pre-existing `DataFuture`.
+    /// Used for asynchronous loading when the path is known in advance.
     pub fn new_with_future(cc: &eframe::CreationContext<'_>, future: DataFuture) -> Self {
         let mut app: Self = Default::default();
         cc.egui_ctx.set_visuals(Visuals::dark());
@@ -355,12 +356,6 @@ impl eframe::App for PolarsViewApp {
         });
 
         // Main table display area.
-        // https://whoisryosuke.com/blog/2023/getting-started-with-egui-in-rust
-        // https://github.com/emilk/egui/issues/1376
-        // https://github.com/emilk/egui/discussions/3069
-        // https://github.com/lucasmerlin/hello_egui/blob/main/crates/egui_dnd/examples/horizontal.rs
-        // https://github.com/vvv/egui-table-click/blob/table-row-framing/src/lib.rs
-        // https://github.com/emilk/eframe_template/blob/4f613f5d6266f0f0888544df4555e6bc77a5d079/src/app.rs
         CentralPanel::default().show(ctx, |ui| {
             warn_if_debug_build(ui); // Show a warning in debug builds.
 

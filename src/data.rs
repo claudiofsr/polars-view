@@ -192,6 +192,58 @@ pub struct DataFrameContainer {
 }
 
 impl DataFrameContainer {
+    /// Loads data from a file (Parquet or CSV).
+    pub async fn load_data(mut filters: DataFilters) -> Result<Self, String> {
+        let absolute_path = filters.absolute_path.clone();
+
+        let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
+
+        Ok(Self {
+            path: absolute_path,
+            df: Arc::new(df),
+            filters,
+            extension,
+        })
+    }
+
+    /// Loads data from a file (Parquet or CSV) And applies SQL query using Polars.
+    pub async fn load_data_with_sql(mut filters: DataFilters) -> Result<Self, String> {
+        let absolute_path = filters.absolute_path.clone();
+
+        let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
+
+        let df_new = match &filters.query {
+            Some(query) => {
+                dbg!(&filters.query);
+                let table_name = filters.table_name.clone();
+
+                // Create a SQL context and register the DataFrame
+                let mut ctx = SQLContext::new();
+                ctx.register(&table_name, df.lazy());
+
+                // Execute the query and collect the results
+                let df_sql: DataFrame = ctx
+                    .execute(query)
+                    .map_err(|e| format!("Polars SQL error: {}", e))?
+                    .collect()
+                    .map_err(|e| format!("DataFrame error: {}", e))?;
+
+                df_sql
+            }
+            None => {
+                dbg!(&filters.query);
+                df
+            }
+        };
+
+        Ok(Self {
+            path: absolute_path,
+            df: Arc::new(df_new),
+            filters,
+            extension,
+        })
+    }
+
     /// Gets the DataFrame and file extension based on the provided `DataFilters`.
     ///
     /// This function determines the file type based on the extension provided by
@@ -261,29 +313,6 @@ impl DataFrameContainer {
         dbg!(&filters);
 
         Ok((df, extension.to_string()))
-    }
-
-    /// Loads data from a file (Parquet or CSV) using Polars.
-    pub async fn load_data(mut filters: DataFilters) -> Result<Self, String> {
-        let absolute_path = filters.absolute_path.clone();
-
-        let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
-
-        Ok(Self {
-            path: absolute_path,
-            df: Arc::new(df),
-            filters,
-            extension,
-        })
-    }
-
-    /// Loads data from a file (Parquet or CSV) using Polars and DataFilters.
-    pub async fn load_data_with_query(filters: DataFilters) -> Result<Self, String> {
-        if filters.query.is_some() {
-            Self::load_data_with_sql(filters).await
-        } else {
-            Self::load_data(filters).await
-        }
     }
 
     /// Reads a Parquet file into a Polars DataFrame.
@@ -371,37 +400,6 @@ impl DataFrameContainer {
         }
 
         Ok(df)
-    }
-
-    /// Loads data and applies a SQL query using Polars.
-    pub async fn load_data_with_sql(mut filters: DataFilters) -> Result<Self, String> {
-        let Some(query) = filters.query.clone() else {
-            return Err("No query provided".to_string());
-        };
-
-        let absolute_path = filters.absolute_path.clone();
-
-        let table_name = filters.table_name.clone();
-
-        let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
-
-        // Create a SQL context and register the DataFrame
-        let mut ctx = SQLContext::new();
-        ctx.register(&table_name, df.lazy());
-
-        // Execute the query and collect the results
-        let sql_df: DataFrame = ctx
-            .execute(&query)
-            .map_err(|e| format!("Polars SQL error: {}", e))?
-            .collect()
-            .map_err(|e| format!("DataFrame error: {}", e))?;
-
-        Ok(Self {
-            path: absolute_path,
-            df: Arc::new(sql_df),
-            filters,
-            extension,
-        })
     }
 
     /// Sorts the data based on the provided filters.
