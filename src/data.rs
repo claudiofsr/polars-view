@@ -125,7 +125,7 @@ impl DataFilters {
                             // Only create and return DataFilters if the required fields are not empty.
                             if !path_str.trim().is_empty()
                                 && !table_name.trim().is_empty()
-                                && !csv_delimiter.trim().is_empty()
+                                && !csv_delimiter.is_empty()
                                 && !query.trim().is_empty()
                             {
                                 result = Some(DataFilters {
@@ -227,8 +227,9 @@ impl DataFrameContainer {
             Some("csv") => {
                 // Validate csv_delimiter
                 if csv_delimiter.len() != 1 {
-                    let msg = "Error: The CSV delimiter must be a single character.";
-                    return Err(msg.to_string());
+                    let msg1 = "The CSV delimiter must be a single character.".to_string();
+                    let msg2 = format!("CSV Delimiter: {:#?}", csv_delimiter);
+                    return Err([msg1, msg2].join("\n\n"));
                 }
 
                 // Read the csv file.
@@ -237,12 +238,14 @@ impl DataFrameContainer {
                 (df, delimiter, "csv")
             }
             Some(ext) => {
-                let msg = format!("File: {:?}\nUnknown extension: {:#?}", absolute_path, ext);
-                return Err(msg);
+                let msg1 = format!("File: {:#?}", absolute_path);
+                let msg2 = format!("Unknown extension: {:#?}", ext);
+                return Err([msg1, msg2].join("\n\n"));
             }
             None => {
-                let msg = format!("File: {:?}\nExtension not found!", absolute_path);
-                return Err(msg);
+                let msg1 = format!("File: {:#?}", absolute_path);
+                let msg2 = "Extension not found!".to_string();
+                return Err([msg1, msg2].join("\n\n"));
             }
         };
 
