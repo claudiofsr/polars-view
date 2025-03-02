@@ -186,7 +186,7 @@ pub struct DataFrameContainer {
     /// String with "parquet" or "csv"
     pub extension: String,
     /// Filters applied to the DataFrame.
-    pub filters: DataFilters,
+    pub filters: Arc<DataFilters>,
 }
 
 impl DataFrameContainer {
@@ -197,7 +197,7 @@ impl DataFrameContainer {
         Ok(Self {
             df: Arc::new(df),
             extension,
-            filters,
+            filters: Arc::new(filters),
         })
     }
 
@@ -232,7 +232,7 @@ impl DataFrameContainer {
         Ok(Self {
             df: Arc::new(df_new),
             extension,
-            filters,
+            filters: Arc::new(filters),
         })
     }
 
@@ -430,7 +430,7 @@ impl DataFrameContainer {
             .sort([col_name], sort_options)
             .map_err(|e| format!("Polars sort error: {}", e))?
             .into();
-        self.filters = filters; //Update filters
+        self.filters = Arc::new(filters); //Update filters
 
         Ok(self)
     }

@@ -96,7 +96,7 @@ impl PolarsViewApp {
                     let path = data.filters.absolute_path.clone();
 
                     // Update data filters
-                    self.data_filters = data.filters.clone();
+                    self.data_filters = data.filters.as_ref().clone();
                     dbg!(&data.filters);
 
                     // Load metadata

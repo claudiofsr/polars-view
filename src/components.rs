@@ -264,7 +264,7 @@ impl DataFrameContainer {
                             // If the sort button is clicked, create a DataFilters to trigger a resort.
                             filters = Some(DataFilters {
                                 sort: sorted_column.clone(), // Updates the filters with the new sort state.
-                                ..self.filters.clone()       // Inherit other filter settings.
+                                ..self.filters.as_ref().clone()  // Inherit other filter settings.
                             });
                         }
                     });
