@@ -364,6 +364,10 @@ impl eframe::App for PolarsViewApp {
                 Some(df_container) if df_container.df.width() > 0 => {
                     // Data loaded successfully, display the table.
                     ScrollArea::horizontal().show(ui, |ui| {
+                        // Setings -> Spacing -> Scroll Area -> Details -> Minimum handle length = 32
+                        ui.style_mut().spacing.scroll.handle_min_length = 32.0;
+                        ui.style_mut().spacing.scroll.allocated_width();
+
                         let opt_filters = df_container.render_table(ui); // Render the table and get any filter updates.
                         if let Some(filters) = opt_filters {
                             let future = df_container.sort(Some(filters)); // Sort the data.
