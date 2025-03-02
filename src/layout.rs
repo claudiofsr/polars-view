@@ -96,7 +96,7 @@ impl PolarsViewApp {
                     dbg!(&data.filters);
 
                     // Load metadata
-                    self.metadata = match &*data.table_type {
+                    self.metadata = match &*data.extension {
                         "parquet" => FileMetadata::from_path(path, "parquet", None, None).ok(),
                         "csv" => {
                             // let schema = (*data.df.schema().as_ref()).clone();
@@ -173,9 +173,10 @@ impl eframe::App for PolarsViewApp {
             if let Some(path) = &dropped_file.path {
                 // Update PolarsViewApp
                 self.data_filters.absolute_path = path.to_path_buf();
-                let filters = self.data_filters.clone();
                 self.run_data_future(
-                    Box::new(Box::pin(DataFrameContainer::load_data(filters))),
+                    Box::new(Box::pin(DataFrameContainer::load_data(
+                        self.data_filters.clone(),
+                    ))),
                     ctx,
                 );
             }
@@ -203,9 +204,10 @@ impl eframe::App for PolarsViewApp {
                             if let Ok(path) = self.runtime.block_on(file_dialog()) {
                                 // Update PolarsViewApp
                                 self.data_filters.absolute_path = path;
-                                let filters = self.data_filters.clone();
                                 self.run_data_future(
-                                    Box::new(Box::pin(DataFrameContainer::load_data(filters))),
+                                    Box::new(Box::pin(DataFrameContainer::load_data(
+                                        self.data_filters.clone(),
+                                    ))),
                                     ctx,
                                 );
                             }

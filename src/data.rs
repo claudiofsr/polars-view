@@ -60,7 +60,8 @@ impl DataFilters {
         }
     }
 
-    /// Extracts the file extension from a path, converting it to lowercase.
+    /// Extracts the file extension from the absolute path, converting it to lowercase for
+    /// case-insensitive comparison.
     pub fn get_extension(&self) -> Option<String> {
         self.absolute_path
             .extension() // Get the extension as an Option<&OsStr>
@@ -187,23 +188,54 @@ pub struct DataFrameContainer {
     /// Filters applied to the DataFrame.
     pub filters: DataFilters,
     /// String with "parquet" or "csv"
-    pub table_type: String,
+    pub extension: String,
 }
 
 impl DataFrameContainer {
-    /// Loads data from a file (Parquet or CSV) using Polars.
-    pub async fn load_data(filters: DataFilters) -> Result<Self, String> {
+    /// Gets the DataFrame and file extension based on the provided `DataFilters`.
+    ///
+    /// This function determines the file type based on the extension provided by
+    /// `filters.get_extension()`. It then reads the file into a `DataFrame`
+    /// using the appropriate reading function (either `read_parquet` or `read_csv`).
+    ///
+    /// ### Arguments
+    ///
+    /// * `filters`: A mutable reference to the `DataFilters` struct, containing
+    ///              the file path and CSV delimiter.
+    ///
+    /// ### Returns
+    ///
+    /// A `Result` containing:
+    ///   - `Ok((DataFrame, String))`: A tuple containing the loaded `DataFrame` and the file extension as a `String`.
+    ///   - `Err(String)`: An error message indicating the reason for failure (e.g., unknown extension, invalid delimiter, file reading error).
+    pub async fn get_df_and_extension(
+        filters: &mut DataFilters,
+    ) -> Result<(DataFrame, String), String> {
         dbg!(&filters);
 
         let absolute_path = &filters.absolute_path;
+        let csv_delimiter = &filters.csv_delimiter;
 
-        // Determine file type based on extension and load accordingly.
-        let (df, table_type) = match filters.get_extension().as_deref() {
-            Some("parquet") => (
-                Self::read_parquet(absolute_path).await?,
-                "parquet".to_string(),
-            ),
-            Some("csv") => (Self::read_csv(&absolute_path).await?, "csv".to_string()),
+        // Determine extension based on extension and load accordingly.
+        let (df, delimiter, extension) = match filters.get_extension().as_deref() {
+            Some("parquet") => {
+                // Read the parquet file.
+                let df = Self::read_parquet(absolute_path).await?;
+
+                (df, None, "parquet") // No delimiter for parquet
+            }
+            Some("csv") => {
+                // Validate csv_delimiter
+                if csv_delimiter.len() != 1 {
+                    let msg = "Error: The CSV delimiter must be a single character.";
+                    return Err(msg.to_string());
+                }
+
+                // Read the csv file.
+                let (df, delimiter) = Self::read_csv(&absolute_path).await?;
+
+                (df, delimiter, "csv")
+            }
             Some(ext) => {
                 let msg = format!("File: {:?}\nUnknown extension: {:#?}", absolute_path, ext);
                 return Err(msg);
@@ -214,11 +246,31 @@ impl DataFrameContainer {
             }
         };
 
+        // Update the filters.csv_delimiter ONLY if we received a delimiter FROM the reader (read_csv)
+        if let Some(byte) = delimiter {
+            // Attempt to convert the byte to a Unicode character.
+            if let Some(c) = char::from_u32(byte as u32) {
+                // If the conversion is successful, set the delimiter.
+                filters.csv_delimiter = c.to_string();
+            }
+        }
+
+        dbg!(&filters);
+
+        Ok((df, extension.to_string()))
+    }
+
+    /// Loads data from a file (Parquet or CSV) using Polars.
+    pub async fn load_data(mut filters: DataFilters) -> Result<Self, String> {
+        let absolute_path = filters.absolute_path.clone();
+
+        let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
+
         Ok(Self {
-            path: absolute_path.clone(),
+            path: absolute_path,
             df: Arc::new(df),
             filters,
-            table_type,
+            extension,
         })
     }
 
@@ -242,7 +294,7 @@ impl DataFrameContainer {
     }
 
     /// Attempts to read a CSV file with different delimiters until successful.
-    async fn read_csv(path: impl AsRef<Path> + Debug) -> Result<DataFrame, String> {
+    async fn read_csv(path: impl AsRef<Path> + Debug) -> Result<(DataFrame, Option<u8>), String> {
         // Delimiters to attempt when reading CSV files.
         let delimiters = [b',', b';', b'|', b'\t'];
 
@@ -250,7 +302,8 @@ impl DataFrameContainer {
             let result_df = Self::attempt_read_csv(&path, delimiter).await;
 
             if let Ok(df) = result_df {
-                return Ok(df); // Return the DataFrame on success
+                // Return the DataFrame and delimiter on success
+                return Ok((df, Some(delimiter)));
             }
         }
 
@@ -318,63 +371,33 @@ impl DataFrameContainer {
     }
 
     /// Loads data and applies a SQL query using Polars.
-    pub async fn load_data_with_sql(filters: DataFilters) -> Result<Self, String> {
-        dbg!(&filters);
-
-        let absolute_path = &filters.absolute_path;
-
-        let table_name = &filters.table_name;
-
-        let csv_delimiter = &filters.csv_delimiter;
-
-        let Some(query) = &filters.query else {
+    pub async fn load_data_with_sql(mut filters: DataFilters) -> Result<Self, String> {
+        let Some(query) = filters.query.clone() else {
             return Err("No query provided".to_string());
         };
 
-        // Load the DataFrame from the file
-        let (df, table_type): (DataFrame, String) = match filters.get_extension().as_deref() {
-            Some("parquet") => (
-                Self::read_parquet(&absolute_path).await?,
-                "parquet".to_string(),
-            ),
-            Some("csv") => {
-                // Convert csv_delimiter string to u8 delimiter
-                match csv_delimiter.len() {
-                    1 => csv_delimiter.as_bytes()[0],
-                    _ => {
-                        let msg = "Error: The CSV delimiter must be a single character.";
-                        return Err(msg.to_string());
-                    }
-                };
+        let absolute_path = filters.absolute_path.clone();
 
-                (Self::read_csv(&absolute_path).await?, "csv".to_string())
-            }
-            Some(ext) => {
-                let msg = format!("File: {:?}\nUnknown extension: {:#?}", absolute_path, ext);
-                return Err(msg);
-            }
-            None => {
-                let msg = format!("File: {:?}\nExtension not found!", absolute_path);
-                return Err(msg);
-            }
-        };
+        let table_name = filters.table_name.clone();
+
+        let (df, extension) = Self::get_df_and_extension(&mut filters).await?;
 
         // Create a SQL context and register the DataFrame
         let mut ctx = SQLContext::new();
-        ctx.register(table_name, df.lazy());
+        ctx.register(&table_name, df.lazy());
 
         // Execute the query and collect the results
         let sql_df: DataFrame = ctx
-            .execute(query)
+            .execute(&query)
             .map_err(|e| format!("Polars SQL error: {}", e))?
             .collect()
             .map_err(|e| format!("DataFrame error: {}", e))?;
 
         Ok(Self {
-            path: absolute_path.clone(),
+            path: absolute_path,
             df: Arc::new(sql_df),
             filters,
-            table_type,
+            extension,
         })
     }
 
