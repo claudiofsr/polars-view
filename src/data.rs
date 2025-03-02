@@ -219,7 +219,6 @@ impl DataFrameContainer {
 
         let df_new = match &filters.query {
             Some(query) => {
-                dbg!(&filters.query);
                 let table_name = filters.table_name.clone();
 
                 // Create a SQL context and register the DataFrame
@@ -235,10 +234,7 @@ impl DataFrameContainer {
 
                 df_sql
             }
-            None => {
-                dbg!(&filters.query);
-                df
-            }
+            None => df,
         };
 
         Ok(Self {
