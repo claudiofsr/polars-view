@@ -205,7 +205,7 @@ impl DataFrameContainer {
             ),
             Some("csv") => (Self::read_csv(&absolute_path).await?, "csv".to_string()),
             Some(ext) => {
-                let msg = format!("File: {:?}\nUnknown extension: {}", absolute_path, ext);
+                let msg = format!("File: {:?}\nUnknown extension: {:#?}", absolute_path, ext);
                 return Err(msg);
             }
             None => {
@@ -350,7 +350,7 @@ impl DataFrameContainer {
                 (Self::read_csv(&absolute_path).await?, "csv".to_string())
             }
             Some(ext) => {
-                let msg = format!("File: {:?}\nUnknown extension: {}", absolute_path, ext);
+                let msg = format!("File: {:?}\nUnknown extension: {:#?}", absolute_path, ext);
                 return Err(msg);
             }
             None => {
