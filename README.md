@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85+-orange.svg)](https://www.rust-lang.org)
 
-**A fast, cross-platform viewer for Parquet and CSV files, powered by Polars and egui.**
+**A fast viewer for Parquet and CSV files, powered by Polars and egui.**
 
 ## Overview
 
@@ -14,7 +14,6 @@ Polars View is a lightweight and efficient tool for inspecting and exploring Par
 ## Features
 
 *   **Fast Loading:** Leverages Polars for efficient data loading and processing.
-*   **Cross-Platform:** Runs on Windows, macOS, and Linux.
 *   **Parquet and CSV Support:** Handles both popular data formats.
 *   **User-Friendly Interface:** Uses egui for a responsive and intuitive GUI.
 *   **Filtering:** Easily filter data using SQL queries.

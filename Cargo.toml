@@ -7,7 +7,7 @@ authors = [
     "Claudio Fernandes de Souza Rodrigues <claudiofsrodrigues@gmail.com>",
 ]
 rust-version = "1.85"
-description = "A fast, cross-platform viewer for Parquet and CSV files, powered by Polars and egui."
+description = "A fast viewer for Parquet and CSV files, powered by Polars and egui."
 keywords = [
     "csv",
     "parquet",
