@@ -361,12 +361,12 @@ impl eframe::App for PolarsViewApp {
             warn_if_debug_build(ui); // Show a warning in debug builds.
 
             match self.df.as_ref().clone() {
-                Some(parquet_data) if parquet_data.df.width() > 0 => {
+                Some(df_container) if df_container.df.width() > 0 => {
                     // Data loaded successfully, display the table.
                     ScrollArea::horizontal().show(ui, |ui| {
-                        let opt_filters = parquet_data.render_table(ui); // Render the table and get any filter updates.
+                        let opt_filters = df_container.render_table(ui); // Render the table and get any filter updates.
                         if let Some(filters) = opt_filters {
-                            let future = parquet_data.sort(Some(filters)); // Sort the data.
+                            let future = df_container.sort(Some(filters)); // Sort the data.
                             self.run_data_future(Box::new(Box::pin(future)), ctx); // Run the sorting task.
                         }
                     });

@@ -340,7 +340,6 @@ impl DataFrameContainer {
             .columns(column, self.df.width()) // Set up the columns.
             .column(Column::remainder())
             .auto_shrink([false, false]) // Disable auto-shrinking to fit content.
-            .min_scrolled_height(1000.0) // Set a minimum height for the table.
             .header(header_height, analyze_header) // Render the table header.
             .body(|body| {
                 let num_rows = self.df.height();
