@@ -45,8 +45,8 @@ pub struct Arguments {
     pub delimiter: String,
 
     /// Set the csv or parquet path.
-    #[arg(help = "Path to the data file (Parquet or CSV)")]
-    pub path: Option<PathBuf>,
+    #[arg(default_value = ".", help = "Path to the data file (Parquet or CSV)")]
+    pub path: PathBuf,
 
     /// Set the query.
     #[arg(
@@ -67,6 +67,17 @@ pub struct Arguments {
         requires = "query"
     )]
     pub table_name: String,
+}
+
+impl Default for Arguments {
+    fn default() -> Self {
+        Arguments {
+            delimiter: ";".to_string(),
+            path: PathBuf::from("."),
+            query: Some(SQL_COMMANDS[0].to_string()),
+            table_name: "AllData".to_string(),
+        }
+    }
 }
 
 impl Arguments {

@@ -175,11 +175,10 @@ impl eframe::App for PolarsViewApp {
         // Handle dropped files.
         if let Some(dropped_file) = ctx.input(|i| i.raw.dropped_files.last().cloned()) {
             if let Some(path) = &dropped_file.path {
-                let data_filters = DataFilters::set_path(path.clone());
-                dbg!(&data_filters);
                 // Update PolarsViewApp
-                self.data_filters = data_filters.clone();
-                let future = DataFrameContainer::load_data(data_filters);
+                self.data_filters.set_path(path);
+                dbg!(&self.data_filters);
+                let future = DataFrameContainer::load_data(self.data_filters.clone());
                 self.run_data_future(Box::new(Box::pin(future)), ctx);
             }
         }
@@ -205,13 +204,11 @@ impl eframe::App for PolarsViewApp {
                             // Open a file dialog to select a file.
                             if let Ok(path) = self.runtime.block_on(file_dialog()) {
                                 // Update PolarsViewApp
-                                self.data_filters.absolute_path = path;
-                                self.run_data_future(
-                                    Box::new(Box::pin(DataFrameContainer::load_data(
-                                        self.data_filters.clone(),
-                                    ))),
-                                    ctx,
-                                );
+                                self.data_filters.set_path(&path);
+                                dbg!(&self.data_filters);
+                                let future =
+                                    DataFrameContainer::load_data(self.data_filters.clone());
+                                self.run_data_future(Box::new(Box::pin(future)), ctx);
                             }
                             ui.close_menu();
                         }
@@ -328,10 +325,8 @@ impl eframe::App for PolarsViewApp {
                     ui.collapsing("Query", |ui| {
                         if let Some(filters) = self.data_filters.render_filter(ui) {
                             // Load data with the applied query.
-                            self.run_data_future(
-                                Box::new(Box::pin(DataFrameContainer::load_data_with_sql(filters))),
-                                ctx,
-                            );
+                            let future = DataFrameContainer::load_data_with_sql(filters);
+                            self.run_data_future(Box::new(Box::pin(future)), ctx);
                         }
                     });
 
@@ -357,6 +352,7 @@ impl eframe::App for PolarsViewApp {
         });
 
         // Main table display area.
+        // CentralPanel must be added after all other panels!
         CentralPanel::default().show(ctx, |ui| {
             warn_if_debug_build(ui); // Show a warning in debug builds.
 

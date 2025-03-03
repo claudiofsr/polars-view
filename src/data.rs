@@ -29,7 +29,7 @@ pub enum SortState {
 }
 
 /// Holds filters to be applied to the data.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct DataFilters {
     /// Absolute path of the data source.
     pub absolute_path: PathBuf,
@@ -43,13 +43,20 @@ pub struct DataFilters {
     pub sort: Option<SortState>,
 }
 
+impl Default for DataFilters {
+    fn default() -> Self {
+        let args = Arguments::default();
+        DataFilters::new(&args)
+    }
+}
+
 impl DataFilters {
     /// Creates a new `DataFilters` instance from command line arguments.
-    pub fn new(args: &Arguments, path: &Path) -> Self {
-        let msg = format!("Failed to get the absolute path from: {:#?}", path);
+    pub fn new(args: &Arguments) -> Self {
+        let msg = format!("Failed to get the absolute path from: {:#?}", args.path);
 
         // Returns the canonical, absolute form of the path.
-        let absolute_path = path.canonicalize().expect(&msg);
+        let absolute_path = args.path.canonicalize().expect(&msg);
 
         DataFilters {
             absolute_path,
@@ -60,14 +67,13 @@ impl DataFilters {
         }
     }
 
-    pub fn set_path(absolute_path: PathBuf) -> Self {
-        DataFilters {
-            absolute_path,
-            table_name: "AllData".to_string(),
-            csv_delimiter: ";".to_string(),
-            query: Some(SQL_COMMANDS[0].to_string()),
-            sort: None,
-        }
+    pub fn set_path(&mut self, path: &Path) {
+        let msg = format!("Failed to get the absolute path from: {:#?}", path);
+
+        // Returns the canonical, absolute form of the path.
+        let absolute_path = path.canonicalize().expect(&msg);
+
+        self.absolute_path = absolute_path;
     }
 
     /// Extracts the file extension from the absolute path, converting it to lowercase for
@@ -329,21 +335,22 @@ impl DataFrameContainer {
     async fn read_csv(path: impl AsRef<Path> + Debug) -> Result<(DataFrame, Option<u8>), String> {
         // Common delimiters to attempt when reading CSV files.
         let delimiters = [b',', b';', b'|', b'\t'];
+
         // Number of rows to read for delimiter detection.
-        // Using `Some(200)` helps quickly determine if a delimiter is viable without processing the entire file.
-        let n_rows = Some(200);
+        // Using NROWS helps quickly determine if a delimiter is viable without processing the entire file.
+        const NROWS: usize = 100;
 
         for delimiter in delimiters {
             // Attempt to read the CSV with the current delimiter, limiting the number of rows for faster initial parsing.
-            let result_df = Self::attempt_read_csv(&path, delimiter, n_rows).await;
+            let result_df = Self::attempt_read_csv(&path, delimiter, Some(NROWS)).await;
 
             if result_df.is_ok() {
                 // Delimiter seems promising. Now read the entire file.
                 let result_df = Self::attempt_read_csv(&path, delimiter, None).await;
 
-                if let Ok(df) = result_df {
+                if let Ok(df_entire) = result_df {
                     // Successfully read the entire CSV file. Return the DataFrame and the delimiter used.
-                    return Ok((df, Some(delimiter)));
+                    return Ok((df_entire, Some(delimiter)));
                 }
             }
         }
