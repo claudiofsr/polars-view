@@ -1,0 +1,74 @@
+[package]
+name = "polars-view"
+version = "0.2.0"
+edition = "2024"
+repository = "https://github.com/claudiofsr/polars-view"
+homepage = "https://github.com/claudiofsr/polars-view"
+documentation = "https://docs.rs/polars-view"
+license = "MIT"
+authors = [
+    "Claudio Fernandes de Souza Rodrigues <claudiofsrodrigues@gmail.com>",
+]
+rust-version = "1.85"
+description = "A fast viewer for Parquet and CSV files, powered by Polars and egui."
+keywords = [
+    "csv",
+    "parquet",
+    "polars",
+    "view",
+]
+
+[dependencies]
+anstyle = "1.0" # Used by clap color
+clap = { version = "4.5", features = ["color", "derive"] }
+egui = "0.31"
+egui_extras = "0.31"
+eframe = { version = "0.31", features = ["persistence"] }
+parquet = "54.2"
+rfd = { version ="0.15", features = ["file-handle-inner"] }
+thiserror = "2.0"
+tokio = { version = "1.43", features = ["rt", "sync", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dependencies.polars]
+version = "0.46.0"
+features = [
+    "concat_str",   # Concat string data in linear time
+    "csv",          # Read CSV format
+    "lazy",         # Lazy API
+    "parquet",      # Read Apache Parquet format
+    "sql",
+    "round_series", # Round underlying float types of Series
+    "strings",      # Extra string utilities for Utf8Chunked
+    "string_encoding",
+]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.11"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[features]
+default = []
+
+[profile.release]
+# https://doc.rust-lang.org/cargo/reference/profiles.html
+debug = false           # No debug info at all.
+strip = "symbols"       # Strip symbols from a binary.
+opt-level = 3           # All optimizations.
+overflow-checks = true  # Panic will occur on overflow.
+lto = true              # Enable link time optimization.
+codegen-units = 1       # Use a single codegen for size optimization.
+panic = "abort"         # Remove traceback information.
+incremental = true      # Save information to disk, improving re-compile times.
+
+[profile.dev]
+opt-level = 1
+
+# Cross-compile a Rust application from Linux to Windows
+# On Manjaro Linux, install with: pacman -S mingw-w64-gcc
+# rustup target list
+# After downloading the target with `rustup target add x86_64-pc-windows-gnu`
+# cargo b -r --target x86_64-unknown-linux-gnu --target x86_64-pc-windows-gnu
