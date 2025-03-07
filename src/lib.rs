@@ -1,4 +1,4 @@
-// Modules that make up the ParqBench library.
+// Modules that make up the PolarsView library.
 mod args;
 mod container;
 mod error;
