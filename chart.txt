@@ -1,0 +1,81 @@
+Organizational Chart (Function of Each File and Articulation)
+
+The application is structured into several modules, each responsible for a specific aspect of the Parquet/CSV viewer. 
+
+Here's a breakdown:
+
+PolarsView Application
+│
+├── main.rs (Entry Point)
+│   ├── Initializes tracing (logging).
+│   ├── Parses command-line arguments (using `args.rs`).
+│   ├── Creates the main application window (`PolarsViewApp` in `layout.rs`).
+│   ├── Starts the `eframe` event loop.
+│   └── Handles initial data loading based on command-line arguments.
+│
+├── lib.rs (Library Module)
+│   ├── Defines the public API of the library.
+│   └── Re-exports modules, making their contents accessible to users of the library.
+│
+├── args.rs (Command-Line Argument Parsing)
+│   ├── Defines the `Arguments` struct using `clap`.
+│   ├── Handles parsing command-line arguments (file path, delimiter, query, table name).
+│   ├── Provides styles, template and unit tests
+│   └── Provides methods for building the `Arguments` struct.
+│
+├── container.rs (DataFrame Handling)
+│   ├── Defines `DataFrameContainer` to hold the Polars `DataFrame`, file extension, and filters.
+│   ├── Implements `load_data` to asynchronously load data from Parquet or CSV files.
+│   ├── Applies SQL queries using `Polars SQLContext`.
+│   ├── Implements `sort` to handle DataFrame sorting.
+│   ├── Implements `render_table` to display the DataFrame as an `egui` table.
+│   └── Handles data type-specific formatting (decimal places, alignment) within the table.
+│
+├── error.rs (Custom Error Handling)
+│   ├── Defines the `PolarsViewError` enum to represent various errors (IO, Polars, CSV parsing, etc.).
+│   └── Implements `From` traits for easier error conversion.
+│
+├── extension.rs (File Extension Handling)
+│   ├── Defines the `FileExtension` enum (Csv, Parquet, Unknown, Missing).
+│   └── Implements `from_path` to determine the file extension from a `Path`.
+│
+├── filters.rs (Data Filtering and Configuration)
+│   ├── Defines `DataFilters` to store filter settings (path, table name, delimiter, query, sort state, ...).
+│   ├── Implements file reading logic (`read_parquet`, `read_csv`, `attempt_read_csv`) with delimiter detection.
+│   ├── Implements `render_filter` to create the UI for setting filters.
+│   └── Provides a function (`dedup`) for removing duplicate elements of a vector and preserving the order.
+│
+├── layout.rs (UI Layout and Main Application Logic)
+│   ├── Defines `PolarsViewApp`, the main application struct.
+│   ├── Manages the `DataFrameContainer`, `DataFilters`, `FileMetadata` and `Popover`.
+│   ├── Implements the `eframe::App` trait for the main application loop (`update`).
+│   ├── Handles file dialogs (`file_dialog`).
+│   ├── Manages asynchronous data loading using Tokio (`runtime`, `pipe`, `tasks`).
+│   ├── Handles dropped files.
+│   ├── Defines the overall UI layout (menu bar, side panel, table area, footer).
+│   ├── Integrates with `DataFilters` to apply filters and trigger data reloading.
+│   ├── Implements check popover and data pending methods.
+│   └── Uses other modules, to implement show/hide of panels.
+│
+├── metadata.rs (File Metadata Display)
+│   ├── Defines `FileMetadata` (Parquet, Csv) to hold file metadata.
+│   ├── Implements `from_path` to extract metadata.
+│   ├── Implements `render_metadata` and `render_schema` to display metadata in the UI.
+│   └── Implements functions that present file and column details within the Egui interface.
+│
+├── polars.rs (Polars-Specific Utilities)
+│   ├── Implements `format_dataframe_columns` for formatting floating-point columns.
+│   └── Implements `round_float_columns` (rounds decimals and handling of different Series types).
+│
+├── sort.rs (Sorting State)
+│   ├── Defines the `SortState` enum (NotSorted, Ascending, Descending).
+│   └── Implements `is_sorted_column` to check the sort state.
+│
+├── sqls.rs (Predefined SQL Queries)
+│   └── Defines constant strings, containing Polars' SQL commands.
+│
+└── traits.rs (Custom Traits and UI Components)
+    ├── Defines `MyStyle` for custom egui styling.
+    ├── Defines `Popover` trait and `Settings` (currently unused) and `Error` structs for popover windows.
+    ├── Defines `SelectionDepth` for incrementing/resetting selection states (used for sorting).
+    └── Defines `ExtraInteractions` for custom UI widgets (like the sort button).
