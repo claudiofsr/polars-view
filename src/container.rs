@@ -46,12 +46,9 @@ impl DataFrameContainer {
     /// ### Returns
     ///
     /// A `PolarsViewResult` containing the `DataFrameContainer` or a Polars error.
-    pub async fn load_data(
-        mut filters: DataFilters,
-        execute_query: bool,
-    ) -> PolarsViewResult<Self> {
-        // dbg!(&filters, &execute_query);
-        tracing::debug!("fn load_data()\nfilters: {filters:#?}\nexecute_query: {execute_query}");
+    pub async fn load_data(mut filters: DataFilters) -> PolarsViewResult<Self> {
+        // dbg!(&filters);
+        tracing::debug!("fn load_data()\nfilters: {filters:#?}");
 
         // Load DataFrame based on extension and get the file extension.
         let (mut df, extension) = filters.get_df_and_extension().await?;
@@ -59,8 +56,8 @@ impl DataFrameContainer {
         // Format the DataFrame to n decimal places.
         // let mut formatted_df = format_dataframe_columns(df, filters.decimal)?;
 
-        // Apply SQL query if requested and if the query is not empty.
-        if execute_query && !filters.query.is_empty() {
+        // Apply SQL query if filters is not empty.
+        if filters.execute_sql_query && filters.query_is_ok() {
             // Create a new SQL context.
             let mut ctx = SQLContext::new();
 
@@ -70,6 +67,13 @@ impl DataFrameContainer {
             // Execute the SQL query and collect the results into a new DataFrame.
             // The first `?` propagates any errors that occur during query execution.
             df = ctx.execute(&filters.query)?.collect()?;
+
+            // Update DataFrame schema and execute_sql_query.
+            filters.schema = df.schema().clone();
+            filters.execute_sql_query = false;
+
+            // dbg!(&filters);
+            tracing::debug!("fn load_data()\nfilters: {filters:#?}");
         }
 
         // Create and return a new DataFrameContainer, wrapping the DataFrame and filters in Arcs.

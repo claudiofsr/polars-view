@@ -43,7 +43,7 @@ fn main() -> eframe::Result<()> {
                 tracing::debug!("eframe::run_native()\nDataFilters: {data_filters:#?}");
 
                 // Load the data from the specified path.
-                let future = DataFrameContainer::load_data(data_filters, false);
+                let future = DataFrameContainer::load_data(data_filters);
 
                 // Create a new PolarsViewApp with the data loading future.
                 PolarsViewApp::new_with_future(cc, Box::new(Box::pin(future)))

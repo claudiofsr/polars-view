@@ -46,10 +46,7 @@ pub struct Arguments {
     pub delimiter: String,
 
     /// Path to data file (CSV, Json, NDJson or Parquet).
-    #[arg(
-        default_value = ".",
-        help = "Path to the data file (CSV, Json, NDJson or Parquet)"
-    )]
+    #[arg(help = "Path to the data file (CSV, Json, NDJson or Parquet)")]
     pub path: PathBuf,
 
     /// SQL query.

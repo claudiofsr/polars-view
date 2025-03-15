@@ -87,6 +87,8 @@ pub struct DataFilters {
     pub decimal: usize,
     /// SQL query to apply.
     pub query: String,
+    /// Execute the SQL query and collect the results into a new DataFrame.
+    pub execute_sql_query: bool,
     /// Column sorting state.
     pub sort: Option<Arc<SortState>>,
 }
@@ -101,7 +103,8 @@ impl Default for DataFilters {
             infer_schema_rows: 200,            // Default schema length (rows to infer schema).
             decimal: 2,                        // Default: 2 decimal places.
             query: DEFAULT_QUERY.to_string(),  // Default query (selects all).
-            sort: None,                        // Default: no sorting.
+            execute_sql_query: false,
+            sort: None, // Default: no sorting.
         }
     }
 }
@@ -111,12 +114,15 @@ impl DataFilters {
     pub fn new(args: &Arguments) -> PolarsViewResult<Self> {
         // Get the canonical, absolute path.
         let absolute_path = args.path.canonicalize()?;
+        let execute_sql_query =
+            args.query.to_lowercase().trim() != DEFAULT_QUERY.to_lowercase().trim();
 
         Ok(DataFilters {
             absolute_path,
             table_name: args.table_name.clone(),
             csv_delimiter: args.delimiter.clone(),
             query: args.query.clone(),
+            execute_sql_query,
             ..Default::default() // Use defaults for other fields.
         })
     }
@@ -133,9 +139,9 @@ impl DataFilters {
         self.absolute_path.extension_as_lowercase()
     }
 
-    /// Checks if filter fields are empty (except numeric ones with defaults).
-    pub fn is_empty(&self) -> bool {
-        self.table_name.is_empty() || self.csv_delimiter.is_empty() || self.query.is_empty()
+    /// Checks whether the SQL query can be executed.
+    pub fn query_is_ok(&self) -> bool {
+        !self.query.trim().is_empty() && !self.table_name.trim().is_empty()
     }
 
     /// Determines FileExtension and loads the DataFrame.
@@ -324,25 +330,27 @@ impl DataFilters {
                     let path_edit = TextEdit::singleline(&mut path_str)
                         .min_size([width_min, ui.available_height()].into())
                         .desired_width(width_max);
-                    ui.add(path_edit).on_hover_text("Enter path and press the Apply button...");
+                    ui.add(path_edit)
+                        .on_hover_text("Enter path and press the Apply button...");
                     ui.end_row();
 
                     // Table name input.
                     ui.label("Table Name:");
                     let table_name_edit =
                         TextEdit::singleline(&mut self.table_name).desired_width(width_max);
-                    ui.add(table_name_edit).on_hover_text("Enter table name for SQL queries...");
+                    ui.add(table_name_edit)
+                        .on_hover_text("Enter table name for SQL queries...");
                     ui.end_row();
 
                     // Conditional CSV settings (only if file extension is "csv").
                     if let Some("csv") = self.get_extension().as_deref() {
                         // CSV delimiter input.
                         ui.label("CSV Delimiter:");
-                        let csv_delimiter_edit =
-                            TextEdit::singleline(&mut self.csv_delimiter)
-                                .char_limit(1) // CSV Delimiter must be a single character.
-                                .desired_width(width_max);
-                        ui.add(csv_delimiter_edit).on_hover_text("Enter the CSV delimiter character...");
+                        let csv_delimiter_edit = TextEdit::singleline(&mut self.csv_delimiter)
+                            .char_limit(1) // CSV Delimiter must be a single character.
+                            .desired_width(width_max);
+                        ui.add(csv_delimiter_edit)
+                            .on_hover_text("Enter the CSV delimiter character...");
                         ui.end_row();
                     }
 
@@ -361,30 +369,26 @@ impl DataFilters {
 
                     // Decimal places input (using DragValue).
                     ui.label("Decimal places:");
-                    ui.add(
-                        DragValue::new(&mut self.decimal)
-                            .speed(1)
-                            .range(0..=10),
-                    )
-                    .on_hover_text("Decimal places for float formatting...");
+                    ui.add(DragValue::new(&mut self.decimal).speed(1).range(0..=10))
+                        .on_hover_text("Decimal places for float formatting...");
                     ui.end_row();
 
                     // SQL query input (multiline).
                     ui.label("SQL Query:");
                     // Creates the TextEdit widget for SQL Query input.
                     let query_edit = TextEdit::multiline(&mut self.query).desired_width(width_max);
-                    ui.add(query_edit).on_hover_text("Enter SQL query to filter data...");
+                    ui.add(query_edit)
+                        .on_hover_text("Enter SQL query to filter data...");
                     ui.end_row();
 
                     // "Apply" button and filter application logic.
                     ui.label(""); // For alignment.
                     ui.with_layout(Layout::top_down(Align::Center), |ui| {
                         if ui.button("Apply SQL Commands").clicked() {
-                            self.query = self.query.trim().to_string(); //trim spaces.
                             let path_new = PathBuf::from(path_str.trim());
 
                             // Input validation:
-                            if path_new.exists() && !self.is_empty() {
+                            if path_new.exists() && self.query_is_ok() {
                                 result = Some(DataFilters {
                                     absolute_path: path_new,
                                     table_name: self.table_name.clone(),
@@ -393,12 +397,25 @@ impl DataFilters {
                                     infer_schema_rows: self.infer_schema_rows,
                                     decimal: self.decimal,
                                     query: self.query.clone(),
+                                    execute_sql_query: true,
                                     sort: self.sort.clone(), // Preserve sort.
                                 });
                             } else {
-                                // Error handling for empty fields or invalid path.
-                                let msg = "Error: Path, Table Name, and Query cannot be empty, and the Path must exist.";
-                                tracing::error!(msg); // Log error
+                                let error = "Error handling for empty fields or invalid path";
+                                let mut msg: Vec<String> = Vec::new();
+
+                                if !path_new.exists() {
+                                    let path = format!("Path: {:?}", path_new);
+                                    msg.push(path);
+                                };
+
+                                if !self.query_is_ok() {
+                                    let table = format!("Table: {:?}", &self.table_name);
+                                    let query = format!("SQL query: {:?}", &self.query);
+                                    msg.extend([table, query]);
+                                };
+
+                                tracing::error!("{error}:\n{}", msg.join("\n")); // Log error
                             }
                         }
                     });
@@ -408,7 +425,7 @@ impl DataFilters {
         );
 
         // Update the DataFilters instance with the (potentially) modified values from the UI.
-        self.absolute_path = PathBuf::from(path_str.trim());
+        self.absolute_path = PathBuf::from(&path_str);
 
         // SQL Command Examples (Collapsing Header).
         CollapsingHeader::new("SQL Command Examples:")

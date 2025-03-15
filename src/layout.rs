@@ -194,7 +194,7 @@ impl eframe::App for PolarsViewApp {
             if let Some(path) = &dropped_file.path {
                 // Update PolarsViewApp
                 self.data_filters.set_path(path);
-                let future = DataFrameContainer::load_data(self.data_filters.clone(), false);
+                let future = DataFrameContainer::load_data(self.data_filters.clone());
                 self.run_data_future(Box::new(Box::pin(future)), ctx);
             }
         }
@@ -222,7 +222,7 @@ impl eframe::App for PolarsViewApp {
                                 // Update PolarsViewApp
                                 self.data_filters.set_path(&path);
                                 let future =
-                                    DataFrameContainer::load_data(self.data_filters.clone(), false);
+                                    DataFrameContainer::load_data(self.data_filters.clone());
                                 self.run_data_future(Box::new(Box::pin(future)), ctx);
                             }
                             ui.close_menu();
@@ -374,7 +374,7 @@ impl eframe::App for PolarsViewApp {
                     // Add Query section
                     ui.collapsing("Query", |ui| {
                         if let Some(filters) = self.data_filters.render_filter(ui) {
-                            let future = DataFrameContainer::load_data(filters, true);
+                            let future = DataFrameContainer::load_data(filters);
                             self.run_data_future(Box::new(Box::pin(future)), ctx);
                         }
                     });
