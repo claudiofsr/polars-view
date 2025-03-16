@@ -8,6 +8,7 @@ use crate::{
     DataFilters,
     ExtraInteractions,
     FileExtension,
+    PolarsViewError,
     PolarsViewResult,
     SortState,
 };
@@ -50,14 +51,20 @@ impl DataFrameContainer {
         // dbg!(&filters);
         tracing::debug!("fn load_data()\nfilters: {filters:#?}");
 
+        // Validate the path *before* attempting to load.  
+        // This gives us a specific error message.
+        if !filters.absolute_path.exists() {
+            return Err(PolarsViewError::FileNotFound(filters.absolute_path.clone()));
+        }
+
         // Load DataFrame based on extension and get the file extension.
         let (mut df, extension) = filters.get_df_and_extension().await?;
 
         // Format the DataFrame to n decimal places.
         // let mut formatted_df = format_dataframe_columns(df, filters.decimal)?;
 
-        // Apply the SQL query if the current SQL query is different from the previous SQL query.
-        if filters.execute_sql_query() {
+        // Apply the SQL query if the current Query Panel is different from the previous Query Panel.
+        if filters.apply_sql {
             // Create a new SQL context.
             let mut ctx = SQLContext::new();
 
@@ -68,13 +75,15 @@ impl DataFrameContainer {
             // The first `?` propagates any errors that occur during query execution.
             df = ctx.execute(&filters.query)?.collect()?;
 
-            // Update DataFrame schema and query_previous.
-            filters.schema = df.schema().clone();
-            filters.query_previous = filters.query.clone();
-
-            // dbg!(&filters);
-            tracing::debug!("fn load_data()\nfilters: {filters:#?}");
+            // Update the apply_sql field.
+            filters.apply_sql = false;
         }
+
+        // Update DataFrame schema.
+        filters.schema = df.schema().clone();
+
+        // dbg!(&filters);
+        tracing::debug!("fn load_data()\nfilters: {filters:#?}");
 
         // Create and return a new DataFrameContainer, wrapping the DataFrame and filters in Arcs.
         Ok(Self {

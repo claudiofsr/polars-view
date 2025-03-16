@@ -54,7 +54,7 @@ pub enum PolarsViewError {
     Other(String),
 
     // Indicates that a specified file could not be found, storing the attempted path.
-    #[error("File not found: {0}")]
+    #[error("File not found: {0:#?}")]
     FileNotFound(PathBuf),
 
     // Indicates an invalid CSV delimiter was provided (empty or too long).
@@ -64,6 +64,10 @@ pub enum PolarsViewError {
     // Indicates that a provided file extension or file type are not supported.
     #[error("Unsupported file type: {0}")]
     UnsupportedFileType(String),
+
+    // Indicates an invalid or inconsistent data filter configuration.
+    #[error("Invalid data filter configuration: {0}")]
+    InvalidDataFilters(String),
 }
 
 // Implementation of the From trait to convert a String into a PolarsViewError.

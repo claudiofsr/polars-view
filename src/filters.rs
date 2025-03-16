@@ -71,7 +71,7 @@ where
 }
 
 /// Holds filters and configurations for data loading and processing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DataFilters {
     /// Absolute path of the data source.
     pub absolute_path: PathBuf,
@@ -87,8 +87,8 @@ pub struct DataFilters {
     pub decimal: usize,
     /// SQL query to apply.
     pub query: String,
-    /// Keep the previous SQL query.
-    pub query_previous: String,
+    /// Apply SQL Commands.
+    pub apply_sql: bool,
     /// Column sorting state.
     pub sort: Option<Arc<SortState>>,
 }
@@ -103,7 +103,7 @@ impl Default for DataFilters {
             infer_schema_rows: 200,            // Default schema length (rows to infer schema).
             decimal: 2,                        // Default: 2 decimal places.
             query: DEFAULT_QUERY.to_string(),  // Default query (selects all).
-            query_previous: DEFAULT_QUERY.to_string(),
+            apply_sql: false,
             sort: None, // Default: no sorting.
         }
     }
@@ -114,13 +114,14 @@ impl DataFilters {
     pub fn new(args: &Arguments) -> PolarsViewResult<Self> {
         // Get the canonical, absolute path.
         let absolute_path = args.path.canonicalize()?;
+        let apply_sql = DEFAULT_QUERY.to_lowercase().trim() != args.query.to_lowercase().trim();
 
         Ok(DataFilters {
             absolute_path,
             table_name: args.table_name.clone(),
             csv_delimiter: args.delimiter.clone(),
             query: args.query.clone(),
-            query_previous: DEFAULT_QUERY.to_string(),
+            apply_sql,
             ..Default::default() // Use defaults for other fields.
         })
     }
@@ -135,17 +136,6 @@ impl DataFilters {
     /// Gets the (lowercased) file extension.
     pub fn get_extension(&self) -> Option<String> {
         self.absolute_path.extension_as_lowercase()
-    }
-
-    /// If the current SQL query is different from the previous SQL query,
-    /// execute the current SQL query and collect the results into a new DataFrame.
-    pub fn execute_sql_query(&self) -> bool {
-        self.query.trim() != self.query_previous.trim()
-    }
-
-    /// Checks whether the SQL query can be executed.
-    pub fn query_is_ok(&self) -> bool {
-        !self.query.trim().is_empty() && !self.table_name.trim().is_empty()
     }
 
     /// Determines FileExtension and loads the DataFrame.
@@ -310,6 +300,7 @@ impl DataFilters {
 
     /// Renders the UI for configuring data filters.
     pub fn render_filter(&mut self, ui: &mut Ui) -> Option<DataFilters> {
+        let filters_previous = self.clone();
         // Create mutable copies for editing within the UI.
         let mut path_str = self.absolute_path.to_string_lossy().to_string();
         let mut result = None;
@@ -337,6 +328,9 @@ impl DataFilters {
                     ui.add(path_edit)
                         .on_hover_text("Enter path and press the Apply button...");
                     ui.end_row();
+
+                    // Update absolute_path
+                    self.absolute_path = PathBuf::from(path_str);
 
                     // Table name input.
                     ui.label("Table Name:");
@@ -385,44 +379,28 @@ impl DataFilters {
                         .on_hover_text("Enter SQL query to filter data...");
                     ui.end_row();
 
+                    // If the current Query Panel is different from the previous Query Panel.
+                    if *self != filters_previous {
+                        self.apply_sql = true;
+                    }
+
                     // "Apply" button and filter application logic.
                     ui.label(""); // For alignment.
                     ui.with_layout(Layout::top_down(Align::Center), |ui| {
                         if ui.button("Apply SQL Commands").clicked() {
-                            let path_new = PathBuf::from(path_str.trim());
-
-                            // Input validation:
-                            if path_new.exists() && self.query_is_ok() {
-                                self.absolute_path = path_new; // Update
+                            if self.apply_sql {
+                                // Result contains DataFilters after editing some fields
                                 result = Some(self.clone());
-                            } else {
-                                let error = "Error handling for empty fields or invalid path";
-                                let mut msg: Vec<String> = Vec::new();
-
-                                if !path_new.exists() {
-                                    let path = format!("Path: {:?}", path_new);
-                                    msg.push(path);
-                                };
-
-                                if !self.query_is_ok() {
-                                    let table = format!("Table: {:?}", &self.table_name);
-                                    let query = format!("SQL query: {:?}", &self.query);
-                                    msg.extend([table, query]);
-                                };
-
-                                tracing::error!("{error}:\n{}", msg.join("\n")); // Log error
                             }
 
-                            tracing::debug!("Apply SQL Commands\n{result:#?}");
+                            tracing::debug!("Apply SQL: {}", self.apply_sql);
+                            tracing::debug!("Apply SQL Commands\nresult: {result:#?}");
                         }
                     });
                     ui.end_row();
                 });
             },
         );
-
-        // Update the DataFilters instance with the (potentially) modified values from the UI.
-        self.absolute_path = PathBuf::from(&path_str);
 
         // SQL Command Examples (Collapsing Header).
         CollapsingHeader::new("SQL Command Examples:")
