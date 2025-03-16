@@ -114,7 +114,7 @@ impl DataFilters {
     pub fn new(args: &Arguments) -> PolarsViewResult<Self> {
         // Get the canonical, absolute path.
         let absolute_path = args.path.canonicalize()?;
-        let apply_sql = DEFAULT_QUERY.to_lowercase().trim() != args.query.to_lowercase().trim();
+        let apply_sql = DEFAULT_QUERY.trim() != args.query.trim();
 
         Ok(DataFilters {
             absolute_path,
