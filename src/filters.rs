@@ -393,11 +393,8 @@ impl DataFilters {
 
                             // Input validation:
                             if path_new.exists() && self.query_is_ok() {
-                                result = Some(DataFilters {
-                                    // update edited fields
-                                    absolute_path: path_new,
-                                    ..self.clone() // Inherit other filter settings.
-                                });
+                                self.absolute_path = path_new; // Update
+                                result = Some(self.clone());
                             } else {
                                 let error = "Error handling for empty fields or invalid path";
                                 let mut msg: Vec<String> = Vec::new();
