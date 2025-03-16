@@ -282,6 +282,7 @@ impl DataFilters {
             .with_missing_is_null(true) // Treat missing values as null.
             .with_null_values(Some(NullValues::AllColumns(null_values))) // Specify null values.
             .with_n_rows(rows_max) // Optionally limit the number of rows read.
+            //.with_decimal_comma(true)
             .finish()?;
 
         // Collect the lazy frame into a DataFrame.
