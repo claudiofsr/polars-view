@@ -87,8 +87,8 @@ pub struct DataFilters {
     pub decimal: usize,
     /// SQL query to apply.
     pub query: String,
-    /// Execute the SQL query and collect the results into a new DataFrame.
-    pub execute_sql_query: bool,
+    /// Keep the previous SQL query.
+    pub query_previous: String,
     /// Column sorting state.
     pub sort: Option<Arc<SortState>>,
 }
@@ -103,7 +103,7 @@ impl Default for DataFilters {
             infer_schema_rows: 200,            // Default schema length (rows to infer schema).
             decimal: 2,                        // Default: 2 decimal places.
             query: DEFAULT_QUERY.to_string(),  // Default query (selects all).
-            execute_sql_query: false,
+            query_previous: DEFAULT_QUERY.to_string(),
             sort: None, // Default: no sorting.
         }
     }
@@ -114,15 +114,13 @@ impl DataFilters {
     pub fn new(args: &Arguments) -> PolarsViewResult<Self> {
         // Get the canonical, absolute path.
         let absolute_path = args.path.canonicalize()?;
-        let execute_sql_query =
-            args.query.to_lowercase().trim() != DEFAULT_QUERY.to_lowercase().trim();
 
         Ok(DataFilters {
             absolute_path,
             table_name: args.table_name.clone(),
             csv_delimiter: args.delimiter.clone(),
             query: args.query.clone(),
-            execute_sql_query,
+            query_previous: DEFAULT_QUERY.to_string(),
             ..Default::default() // Use defaults for other fields.
         })
     }
@@ -137,6 +135,12 @@ impl DataFilters {
     /// Gets the (lowercased) file extension.
     pub fn get_extension(&self) -> Option<String> {
         self.absolute_path.extension_as_lowercase()
+    }
+
+    /// If the current SQL query is different from the previous SQL query,
+    /// execute the current SQL query and collect the results into a new DataFrame.
+    pub fn execute_sql_query(&self) -> bool {
+        self.query.trim() != self.query_previous.trim()
     }
 
     /// Checks whether the SQL query can be executed.
@@ -390,15 +394,14 @@ impl DataFilters {
                             // Input validation:
                             if path_new.exists() && self.query_is_ok() {
                                 result = Some(DataFilters {
+                                    // update edited fields
                                     absolute_path: path_new,
                                     table_name: self.table_name.clone(),
                                     csv_delimiter: self.csv_delimiter.clone(),
-                                    schema: self.schema.clone(),
                                     infer_schema_rows: self.infer_schema_rows,
                                     decimal: self.decimal,
                                     query: self.query.clone(),
-                                    execute_sql_query: true,
-                                    sort: self.sort.clone(), // Preserve sort.
+                                    ..self.clone() // Inherit other filter settings.
                                 });
                             } else {
                                 let error = "Error handling for empty fields or invalid path";
@@ -417,6 +420,8 @@ impl DataFilters {
 
                                 tracing::error!("{error}:\n{}", msg.join("\n")); // Log error
                             }
+
+                            tracing::debug!("Apply SQL Commands\n{result:#?}");
                         }
                     });
                     ui.end_row();

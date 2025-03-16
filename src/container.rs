@@ -56,8 +56,8 @@ impl DataFrameContainer {
         // Format the DataFrame to n decimal places.
         // let mut formatted_df = format_dataframe_columns(df, filters.decimal)?;
 
-        // Apply SQL query if filters is not empty.
-        if filters.execute_sql_query && filters.query_is_ok() {
+        // Apply the SQL query if the current SQL query is different from the previous SQL query.
+        if filters.execute_sql_query() {
             // Create a new SQL context.
             let mut ctx = SQLContext::new();
 
@@ -68,9 +68,9 @@ impl DataFrameContainer {
             // The first `?` propagates any errors that occur during query execution.
             df = ctx.execute(&filters.query)?.collect()?;
 
-            // Update DataFrame schema and execute_sql_query.
+            // Update DataFrame schema and query_previous.
             filters.schema = df.schema().clone();
-            filters.execute_sql_query = false;
+            filters.query_previous = filters.query.clone();
 
             // dbg!(&filters);
             tracing::debug!("fn load_data()\nfilters: {filters:#?}");
