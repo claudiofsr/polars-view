@@ -396,11 +396,6 @@ impl DataFilters {
                                 result = Some(DataFilters {
                                     // update edited fields
                                     absolute_path: path_new,
-                                    table_name: self.table_name.clone(),
-                                    csv_delimiter: self.csv_delimiter.clone(),
-                                    infer_schema_rows: self.infer_schema_rows,
-                                    decimal: self.decimal,
-                                    query: self.query.clone(),
                                     ..self.clone() // Inherit other filter settings.
                                 });
                             } else {
