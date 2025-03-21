@@ -1,0 +1,140 @@
+PolarsView: A fast, interactive data viewer for CSV, Json, and Parquet files, using Polars and egui.
+
+File Relationships / Organogram:
+
++---------------------+
+|      main.rs        |
++---------------------+
+      |  (Entry Point)
+      |  - Initializes logging (tracing_subscriber).
+      |  - Parses command-line args (using `args.rs`).
+      |  - Creates the main application window (eframe).
+      |  - Initializes and runs `PolarsViewApp` (from `layout.rs`).
+      |  - Handles initial data load if a file path is provided as a command-line argument.
+      |
+      v
+      +--------------> +---------------------+
+      |                |     layout.rs       |
+      |                +---------------------+
+      |                      |  (Main Application Logic & UI)
+      |                      |  - Defines `PolarsViewApp`: holds the application's state.
+      |                      |  - Manages UI layout: top menu bar, side panel (metadata,
+      |                      |    filters, schema), central panel (data table), bottom panel (file path).
+      |                      |  - Handles user interactions: file open/save (uses `file_dialog.rs`),
+      |                      |    filtering, sorting, and theme toggling.
+      |                      |  - Asynchronously loads/saves data using `tokio` and `DataFuture`.
+      |                      |  - Uses `oneshot` channels for communication between the UI and background tasks.
+      |                      |  - Creates `Notification`s (Error, Settings - defined in `traits.rs`).
+      |                      |  - Interacts with `DataFrameContainer` for data loading, sorting, and table rendering.
+      |                      |  - Implements the `eframe::App` trait; the `update` method is the main application loop.
+      |                      |
+      |                      |--Uses--> +---------------------+
+      |                      |          |   filters.rs        | (Data Loading/Filtering Configuration)
+      |                      |          +---------------------+
+      |                      |                |  - Defines `DataFilters`: stores parameters for loading/filtering data
+      |                      |                |    (path, delimiter, query, null values, etc.).
+      |                      |                |  - `get_df_and_extension`: Loads DataFrame and detects file type.
+      |                      |                |  - Methods for reading CSV, Json, NDJson, Parquet (`read_csv_data`, etc.).
+      |                      |                |  - `read_csv_data` attempts to automatically detect delimiters.
+      |                      |                |  - Applies SQL queries using `polars::sql::SQLContext`.
+      |                      |                |  - Provides UI for configuring filters (`render_filter` method).
+      |                      |                |  - Includes `unique_ordered` function for deduplicating `Vec`s.
+      |                      |                |
+      |                      |                |------Uses-----> +---------------+
+      |                      |                |                  |    args.rs    | (Command-Line Argument Parsing)
+      |                      |                |                  +---------------+
+      |                      |                                      | - Defines `Arguments` struct using `clap`.
+      |                      |                                      | - Parses command-line options.
+      |                      |                                      | - Defines help text and styling for CLI.
+      |                      |
+      |                      |--Uses--> +-------------------------+
+      |                      |          |  DataFrameContainer.rs  | (Data Storage and Table Rendering)
+      |                      |          +-------------------------+
+      |                      |                | - Defines `DataFrameContainer`: holds the `DataFrame`, file extension, and filters.
+      |                      |                | - `load_data`: Orchestrates data loading, filtering, and null column removal.
+      |                      |                | - `sort`: Sorts the `DataFrame` based on `SortState`.
+      |                      |                | - `render_table`: Builds and displays the `egui` table with sortable headers.
+      |                      |                | - Helper functions for formatting cell values (`format_cell_value`).
+      |                      |                |--Uses--> +----------------------------+
+      |                      |                         | decimal_and_layout_v1/v2.rs  | (Conditional Formatting)
+      |                      |                         +----------------------------+
+      |                                                       |  - `get_decimal_and_layout`: Determines cell formatting (decimal places
+      |                                                       |  and text alignment) based on column type and feature flag ("simple" or "special").
+      |
+      +--------------> +---------------------+
+      |                |    error.rs         | (Custom Error Handling)
+      |                +---------------------+
+      |                      | - Defines `PolarsViewError`: an enum for application-specific errors.
+      |                      | - Implements `From<String>` and other error conversions.
+      |                      | - Uses the `thiserror` crate to simplify error definition and display.
+      |
+      +--------------> +---------------------+
+      |                |   extension.rs      | (File Extension Handling)
+      |                +---------------------+
+      |                      | - Defines `FileExtension`: an enum representing file types (Csv, Json, NDJson, Parquet, Unknown, Missing).
+      |                      | - `from_path`: Determines the `FileExtension` from a given `Path`.
+      |
+      +--------------> +---------------------+
+      |                |  file_dialog.rs     | (File Dialogs: Open/Save)
+      |                +---------------------+
+      |                      | - `open_file`: Asynchronously opens a file selection dialog.
+      |                      | - `save_as`:  Asynchronously opens a save file dialog, allowing format selection (CSV, Json, NDJson, Parquet).
+      |                      | - `save`:  Saves to the *original* path and detected filetype. Handles type-checking to prevent mismatches (eg, saving a CSV file as Parquet)
+      |                      | - Uses `tokio::task::spawn_blocking` for file I/O to prevent blocking the UI.
+      |                      | - Uses `oneshot` channels to send the operation result back to the UI thread.
+      |
+      +--------------> +-----------------+
+      |                |   metadata.rs   | (Metadata & Schema Display)
+      |                +-----------------+
+      |                      | - Defines `FileMetadata`: stores row count, column count, and schema.
+      |                      | - `from_container`: Creates `FileMetadata` from a `DataFrameContainer`.
+      |                      | - `render_metadata`:  Displays metadata in the UI.
+      |                      | - `render_schema`: Displays the schema, with copy-to-clipboard for column names.
+      |
+      +--------------> +---------------+
+      |                |    polars.rs   | (Polars Utility Functions)
+      |                +---------------+
+      |                      | - `remove_null_columns`: Removes columns containing only null values.
+      |                      | - `format_dataframe_columns`: (Currently unused).  Rounds all float columns.
+      |
+      +--------------> +--------------+
+      |                |   sort.rs    | (Sorting State)
+      |                +--------------+
+      |                      | - Defines `SortState`: enum representing sorting states (NotSorted, Ascending, Descending).
+      |
+      +--------------> +---------------+
+                       |     sqls.rs    | (SQL Examples)
+                       +---------------+
+                             | - `DEFAULT_QUERY`: Constant for the default "SELECT *" query.
+                             | - `sql_commands`:  Generates example SQL queries based on the `DataFrame` schema.
+                             | - Helper functions like `get_col_name`, `get_col_by_type`, `get_col_name_with_dtype`, etc.
+                             |   to safely access schema information and build dynamic queries.
+
++---------------------+
+|      traits.rs      |
++---------------------+
+      | (Custom Traits and UI Extensions)
+      | - `MyStyle`: Custom egui styling (dark/light theme, fonts, spacing).
+      | - `Notification`: Trait for notification windows (Error, Settings).
+      | - `SelectionDepth`: Trait for cycling through states (used for sorting).
+      | - `ExtraInteractions`: Adds `sort_button` to `egui::Ui`.
+      | - `PathExtension`: Adds `extension_as_lowercase` to `Path`.
+
++---------------------+
+|      lib.rs         |
++---------------------+
+      | (Library Module Declarations)
+      | - Re-exports the public API of the PolarsView library.
+      | - Select format module: simple or special
+
++---------------------+
+|      Cargo.toml     |
++---------------------+
+      | (Project Metadata and Dependencies)
+       - Defines project metadata, dependencies (eframe, egui, polars, tokio, etc.).
+       - Configures features (like "special" for alternative formatting) and build profiles.
+
++---------------------+
+|    README.txt      |
++---------------------+
+     | (User documentation, building and running, usage, etc.).
