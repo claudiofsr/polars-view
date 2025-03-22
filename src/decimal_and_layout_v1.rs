@@ -1,24 +1,16 @@
 use egui::{Direction, Layout};
-use polars::prelude::Column as PColumn;
-use polars::prelude::*;
+use polars::prelude::Column;
 
 /// Determines the number of decimal places to display and the layout for a given column based on its data type.
-pub fn get_decimal_and_layout(column: &PColumn, decimal: usize) -> (Option<usize>, Layout) {
-    match column.dtype() {
-        DataType::Float32 | DataType::Float64 => {
+pub fn get_decimal_and_layout(column: &Column, decimal: usize) -> (Option<usize>, Layout) {
+    let dtype = column.dtype(); // Get the data type of the column.
+
+    match dtype {
+        _ if dtype.is_float() => {
             // For floating-point numbers, specify the number of decimal places and right-align the content.
             (Some(decimal), Layout::right_to_left(egui::Align::Center))
         }
-        DataType::Date
-        | DataType::Boolean
-        | DataType::Int8
-        | DataType::Int16
-        | DataType::Int32
-        | DataType::Int64
-        | DataType::UInt8
-        | DataType::UInt16
-        | DataType::UInt32
-        | DataType::UInt64 => (
+        _ if dtype.is_date() || dtype.is_bool() || dtype.is_integer() => (
             // For date, boolean and integer types, no decimal places are required and the content is centered.
             None,
             Layout::centered_and_justified(Direction::LeftToRight),
