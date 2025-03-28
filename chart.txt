@@ -1,0 +1,115 @@
+PolarsView: Application Flow & Module Responsibilities Chart
+
+This chart outlines the primary flow of control and data, and the core responsibilities
+of each module within the PolarsView application. Numbering indicates a typical sequence
+during startup and within the event loop. Arrows (`-->`) denote dependencies or calls.
+
++---------------------+
+|      main.rs        | (1. Application Entry Point)
++---------------------+
+  | - Parses CLI args using `clap` (`--> args.rs`).
+  | - Initializes logging (`tracing`).
+  | - Creates initial config state (`--> filters.rs::DataFilters`, `--> format.rs::DataFormat`).
+  | - **If CLI path provided:** Triggers initial async data load:
+  |   `--> container.rs::load_data(initial_filters, initial_format) [Async]`
+  |     | (Calls `--> filters.rs::get_df_and_extension`, `polars::sql`, `--> polars.rs::remove_null_columns`)
+  | - Creates the main app instance (`--> layout.rs::PolarsViewApp`).
+  | - Starts the `eframe` application loop (`eframe::run_native`).
+  |
+  +--> +---------------------+
+  |    |      args.rs        | (1a. CLI Argument Handling)
+  |    +---------------------+
+  |      - Defines `Arguments` struct. Configures `clap` for parsing CLI flags/options.
+  |
+  +--> +---------------------+
+       |     layout.rs       | (2. Main App State & UI Loop - `eframe::App`)
+       +---------------------+
+         | - Defines `PolarsViewApp` struct (holds main state: `Option<Arc<DataFrameContainer>>`, filters, format, etc.).
+         | - Owns the `tokio::runtime`.
+         | - Implements `eframe::App::update()`: Main render/event loop.
+         | - **Handles Events:**
+         |   - (2a) Drag & Drop: Updates path (`--> filters.rs::set_path`), triggers load (`--> Step 3b`).
+         |   - (2b) Shortcuts (Ctrl+O): `--> file_dialog.rs::open_file`, updates path (`--> filters.rs::set_path`), triggers load (`--> Step 3b`).
+         |   - (2c) Shortcuts (Ctrl+S): Triggers save: `run_data_future(...) --> (async) file_dialog.rs::save`.
+         |   - (2d) Shortcuts (Ctrl+A): Triggers save as: `run_data_future(...) --> (async) file_dialog.rs::save_as`.
+         | - **Manages UI Panels:** (`render_menu_bar`, `render_side_panel`, `render_central_panel`).
+         | - **Manages Async Operations:**
+         |   - `run_data_future()`: Spawns tasks on `tokio::runtime`, sets up `tokio::sync::oneshot` channel (`pipe`).
+         |   - `check_data_pending()`: Polls `pipe` in `update()` loop, processes `Ok(Container)` or `Err(PolarsViewError)`, updates app state.
+         |
+         +--> +---------------------+
+         |    |   file_dialog.rs    | (2a/2c/2d. Native File Dialogs & I/O)
+         |    +---------------------+
+         |      - Provides async `open_file`, `save`, `save_as` using `rfd`.
+         |      - Uses `tokio::task::spawn_blocking` for blocking file I/O.
+         |      - Uses `tokio::sync::oneshot` to return result/path to `layout.rs`.
+         |
+         +--------------------------------------> (UI Rendering Triggered from layout.rs::update)
+              |
+              |  (3. Side Panel Rendering & Logic - `layout.rs::render_side_panel`)
+              |    +--> +---------------------+
+              |    |    |   metadata.rs       | (3a. Metadata/Schema UI)
+              |    |    +---------------------+
+              |    |      - Defines `FileMetadata`. Renders info (`render_metadata`, `render_schema`) via `egui`.
+              |    |
+              |    +--> +---------------------+
+              |    |    |     format.rs       | (3b. Formatting UI & State)
+              |    |    +---------------------+
+              |    |      - Defines `DataFormat` (alignments, decimals, expand_cols).
+              |    |      - `render_format`: Renders `egui` controls. Change detection triggers update:
+              |    |        `layout.rs --> run_data_future(...) --> (async) container.rs::update_format`.
+              |    |
+              |    +--> +---------------------+
+              |         |     filters.rs      | (3c. Filters/Query UI & State / Loader Logic)
+              |         +---------------------+
+              |           | - Defines `DataFilters` (path, query, delimiter, etc.).
+              |           | - `render_query`: Renders `egui` controls. Change detection triggers reload:
+              |           |   `layout.rs --> run_data_future(...) --> (async) container.rs::load_data`.
+              |           |   (Also uses `--> sqls.rs` for examples).
+              |           | - Contains core data loading logic (`get_df_and_extension`, `read_*_data`) using `polars`.
+              |           | - Calls `--> extension.rs::from_path`.
+              |           |
+              |           +--> +---------------------+
+              |                |     sqls.rs         | (3c-i. SQL Examples)
+              |                +---------------------+
+              |                  - Generates context-aware SQL examples based on `Schema`.
+              |
+              |  (4. Central Panel Rendering & Logic - `layout.rs::render_central_panel`)
+              |    | - Calls `check_data_pending()` to handle async results first.
+              |    | - **If data exists:** `--> container.rs::render_table`
+              |    |   - If sort requested by table header click:
+              |    |     `layout.rs --> run_data_future(...) --> (async) container.rs::sort`.
+              |    | - **If loading:** Shows `egui::Spinner`.
+              |    | - **If no data:** Shows help text.
+              |    v
+              +--> +---------------------+
+                   |   container.rs      | (Core Data Holder & Table Renderer / Async Operation Target)
+                   +---------------------+
+                     | - Defines `DataFrameContainer` (holds `Arc<DataFrame>`, `Arc<Filters>`, `Arc<Format>`).
+                     | - **Target for Async Ops:** `load_data`, `update_format`, `sort` (called via `run_data_future`).
+                     | - `render_table`: Builds table via `egui_extras::TableBuilder`.
+                     |   - Calls `render_table_header`: Uses features/traits (`--> traits.rs`). Detects clicks for sorting.
+                     |   - Calls `render_table_row`: Uses `format_cell_value`, `--> decimal_and_layout_vX.rs`.
+                     | - `build_table`: Configures `TableBuilder`, sets dynamic `Id`.
+                     |
+                     +--> +---------------------+
+                     |    | decimal_and_layout| (4a. Cell Layout Logic)
+                     |    | _v1.rs / _v2.rs   |
+                     |    +---------------------+
+                     |      - Feature-flagged: Provides `get_decimal_and_layout` fn based on `DataFormat` / column.
+                     |
+                     +--> +---------------------+
+                          |    polars.rs        | (Polars Utilities)
+                          +---------------------+
+                            - Utility functions for `polars::DataFrame` (e.g., `remove_null_columns`).
+
+Supporting Modules (Used Across Application):
+  * error.rs: Defines `PolarsViewError` enum (`thiserror`) and `PolarsViewResult`.
+  * extension.rs: `FileExtension` enum and path extension helper (`from_path`).
+  * sort.rs: Defines simple `SortState` enum.
+  * traits.rs: Custom egui styling (`MyStyle`), Notifications (`Notification`), Sort button logic (`SelectionDepth`, `ExtraInteractions`), custom header (`SortableHeaderWidget`), utility traits (`PathExtension`, `UniqueElements`).
+  * lib.rs: Library root; module declarations, public API re-exports, feature flag (`cfg-if`) management.
+  * Cargo.toml: Dependencies, features, build profiles.
+  * README.txt: Project documentation.
+  * chart.txt: This file.
+  
