@@ -23,7 +23,7 @@ This project is inspired by and initially forked from the [parqbench](https://gi
     *   **Column Header Styles (Compile-Time Features):**
         *   `header-wrapping` (Default): Uses a custom header widget with wrapping text for long names and makes only the sort icon clickable. Provides colored text.
         *   `header-simple`: Uses a standard `egui` button style for headers; the entire button is clickable for sorting, text does not wrap.
-    *   **Column Sizing:** Choose between automatically sizing columns to content (`Format > Expand Cols` = true) or using faster initial calculated widths (`Expand Cols` = false). Switching requires a table layout reset managed internally.
+    *   **Column Sizing:** Choose between automatically sizing columns to content (`Format > Auto Col Width` = true) or using faster initial calculated widths (`Auto Col Width` = false).
 *   **SQL Querying:** Filter and transform data using Polars' SQL interface. Specify the query in the "Query" panel and click "Apply SQL Commands". Queries execute asynchronously.
 *   **Configuration Panels:**
     *   **Metadata:** Displays file information (row count, column count).
@@ -31,7 +31,7 @@ This project is inspired by and initially forked from the [parqbench](https://gi
     *   **Format:**
         *   **Alignment:** Customize text alignment (Left, Center, Right) for different data types.
         *   **Decimals:** Control the number of decimal places displayed for float columns.
-        *   **Expand Cols:** Toggle column auto-sizing behavior.
+        *   **Auto Col Width:** Automatically adjust column widths based on content.
         *   **Cell Formatting (Compile-Time Features):**
             *   `format-simple` (Default): Basic alignment and decimal formatting.
             *   `format-special`: Applies special alignment/decimal rules to specific columns (e.g., "Alíquota").
@@ -117,7 +117,7 @@ PolarsView uses `eframe` and `egui` for the immediate-mode GUI. Data operations 
     *   Adjust column widths by dragging the separators between headers.
 *   **Configuring View & Data:**
     *   Expand the panels on the left ("Metadata", "Schema", "Format", "Query") to view information and change settings.
-    *   **Format Panel:** Adjust alignment per data type, set float precision, and toggle column expansion (`Expand Cols`). Changes trigger an efficient asynchronous update.
+    *   **Format Panel:** Adjust alignment per data type, set float precision, and toggle column width (`Auto Col Width`). Changes trigger an efficient asynchronous update.
     *   **Query Panel:** Set CSV options (delimiter, nulls, schema inference), toggle `Remove Null Cols`, define and apply SQL queries. Applying SQL or changing most query settings triggers an asynchronous data reload/requery.
 *   **Applying SQL:**
     *   Enter your query in the "SQL Query" text area (using `AllData` as the default table name unless changed via CLI or config).

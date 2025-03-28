@@ -19,7 +19,7 @@ use std::{
 
 /// Static string listing common values treated as null/missing during CSV parsing.
 /// The `r#""#` syntax denotes a raw string literal, avoiding the need to escape quotes.
-pub static NULL_VALUES: &str = r#""", " ", "<N/D>"#;
+pub static NULL_VALUES: &str = r#""", " ", <N/D>"#;
 
 /// Default delimiter used for CSV parsing if not specified or detected.
 /// Using `&'static str` for common, immutable delimiters saves memory allocation.
