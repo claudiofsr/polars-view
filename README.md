@@ -32,9 +32,6 @@ This project is inspired by and initially forked from the [parqbench](https://gi
         *   **Decimals:** Control the number of decimal places displayed for `Float32`/`Float64` columns.
         *   **Auto Col Width:** Toggle automatic column width adjustment based on content.
         *   **Header Wrapping:** Toggle between the wrapping/colored header and the simple/single-line header.
-        *   **Cell Formatting (Compile-Time Features):**
-            *   `format-simple` (Default): Basic alignment and decimal formatting based on type.
-            *   `format-special`: Applies special alignment/decimal rules to specific hardcoded column names (e.g., "Alíquota") in addition to type-based rules.
     *   **Query:**
         *   **SQL Query:** Enter SQL commands (default table name: `AllData`, configurable via CLI).
         *   **Apply SQL Button:** Executes the entered query asynchronously.
