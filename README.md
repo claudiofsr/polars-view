@@ -18,7 +18,6 @@ This project is inspired by and initially forked from the [parqbench](https://gi
     *   Load data from: CSV, JSON, NDJSON, Parquet.
     *   Save data as: CSV, JSON, NDJSON, Parquet (via "Save As..."). Automatic CSV delimiter detection on load.
 *   **Interactive Table View:**
-    *   Displays data in a scrollable and resizable table using `egui_extras::TableBuilder`.
     *   **Sorting:** Click column headers to sort the *entire* DataFrame (cycles through Not Sorted → Descending ↔ Ascending). Sort operations are performed asynchronously using `tokio`.
     *   **Column Header Styles (Compile-Time Features):**
         *   `header-wrapping` (Enabled via `DataFormat` setting, default: `true`): Uses a custom header widget with wrapping text for long names and makes only the sort icon clickable. Provides colored text.
