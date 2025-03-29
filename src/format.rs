@@ -80,18 +80,20 @@ pub struct DataFormat {
     /// defaults on a per-type basis. Keys are `polars::prelude::DataType`, values are `egui::Align`.
     pub alignments: HashMap<DataType, Align>,
 
+    /// Controls the column sizing strategy used by `egui_extras::TableBuilder` in `container.rs::build_table`:
+    /// - `true`: Use `Column::auto()`, resizing columns based on content width. Can be slower.
+    /// - `false`: Use `Column::initial(calculated_width)`, providing faster initial rendering with manually resizable columns.
+    ///
+    /// Modified by the checkbox in `render_auto_col`. The change detection for this flag
+    /// is crucial as it requires rebuilding the table with a different `egui::Id` to force a layout reset.
+    pub auto_col_width: bool,
+
     /// The number of decimal places to display for floating-point number columns
     /// (`Float32`, `Float64`) in the table. Modified by the UI in `render_decimal_input`.
     /// Used by `get_decimal_and_layout` and `container.rs::format_cell_value`.
     pub decimal: usize,
 
-    /// Controls the column sizing strategy used by `egui_extras::TableBuilder` in `container.rs::build_table`:
-    /// - `true`: Use `Column::auto()`, resizing columns based on content width. Can be slower.
-    /// - `false`: Use `Column::initial(calculated_width)`, providing faster initial rendering with manually resizable columns.
-    ///
-    /// Modified by the checkbox in `render_auto_col_width_checkbox`. The change detection for this flag
-    /// is crucial as it requires rebuilding the table with a different `egui::Id` to force a layout reset.
-    pub auto_col_width: bool,
+    pub header_wrapping: bool,
 }
 
 // --- Implementations ---
@@ -104,10 +106,11 @@ impl Default for DataFormat {
         DataFormat {
             // Clone the globally defined defaults. This is cheap as LazyLock holds the HashMap.
             alignments: DEFAULT_ALIGNMENTS.clone(),
-            // Sensible default for displaying floating-point numbers.
-            decimal: 2,
             // Default to fixed initial column widths for potentially better performance.
             auto_col_width: false,
+            // Sensible default for displaying floating-point numbers.
+            decimal: 2,
+            header_wrapping: true,
         }
     }
 }
@@ -170,7 +173,9 @@ impl DataFormat {
                     self.render_decimal_input(ui); // Modifies self.decimal directly.
 
                     // Render the column expansion toggle checkbox.
-                    self.render_auto_col_width_checkbox(ui); // Modifies self.auto_col_width directly.
+                    self.render_auto_col(ui); // Modifies self.auto_col_width directly.
+
+                    self.render_header(ui);
 
                     // --- 3. Detect Changes Post-UI Rendering ---
                     // Compare the potentially modified `self` with the state captured before UI rendering.
@@ -297,12 +302,20 @@ impl DataFormat {
     /// # Arguments
     ///
     /// * `ui`: Mutable reference to the `egui::Ui` context within the main format grid.
-    fn render_auto_col_width_checkbox(&mut self, ui: &mut Ui) {
+    fn render_auto_col(&mut self, ui: &mut Ui) {
         ui.label("Auto Col Width:"); // Label for the checkbox.
         // `ui.checkbox(&mut self.auto_col_width, ...)` binds the checkbox state to the boolean field.
         // Clicking the checkbox toggles the value of `self.auto_col_width`.
         ui.checkbox(&mut self.auto_col_width, "") // Bind to the `auto_col_width` field. Label is separate.
             .on_hover_text("Enable: Automatically adjust column widths based on content (can be slower).\nDisable: Use uniform initial widths for faster rendering.");
+        ui.end_row(); // End the row in the *outer* grid (`data_format_grid`).
+    }
+
+    fn render_header(&mut self, ui: &mut Ui) {
+        ui.label("Header wrapping:"); // Label for the checkbox.
+        // Clicking the checkbox toggles the value of `header_wrapping`.
+        ui.checkbox(&mut self.header_wrapping, "") // Bind to the `auto_col_width` field. Label is separate.
+            .on_hover_text("Enable: wrapping and colored header.\nDisable: single-line header.");
         ui.end_row(); // End the row in the *outer* grid (`data_format_grid`).
     }
 }

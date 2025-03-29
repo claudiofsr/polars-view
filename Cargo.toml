@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.30.1"
+version = "0.31.0"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -60,18 +60,11 @@ env_logger = "0.11"
 unsafe_code = "forbid"
 
 [features]
-# Default features: Enable the wrapping header if nothing else is specified.
-default = ["format-simple", "header-wrapping"]
+default = ["format-simple"]
 
 # Use simple or special format
 format-simple =  [] # mod decimal_and_layout_v1: fn get_decimal_and_layout()
 format-special = [] # mod decimal_and_layout_v2: fn get_decimal_and_layout()
-
-# Feature for the basic, single-line header with ui.sort_button
-header-simple = []
-
-# Feature for the wrapping, colored header with icon-only click
-header-wrapping = []
 
 # cargo run --features format-special,header-wrapping
 # cargo b -r && cargo install --path=. --no-default-features --features header-simple

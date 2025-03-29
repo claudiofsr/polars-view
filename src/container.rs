@@ -1,25 +1,13 @@
-use cfg_if::cfg_if;
-use egui::{Id, TextStyle, Ui};
+use egui::{Color32, Id, TextStyle, Ui};
 use egui_extras::{Column, TableBuilder, TableRow};
 use polars::prelude::Column as PColumn;
 use polars::{prelude::*, sql::SQLContext};
 use std::sync::Arc;
 
 use crate::{
-    DataFilters, DataFormat, FileExtension, PolarsViewError, PolarsViewResult, SortState,
-    get_decimal_and_layout, remove_null_columns,
+    DataFilters, DataFormat, ExtraInteractions, FileExtension, PolarsViewError, PolarsViewResult,
+    SelectionDepth, SortState, SortableHeaderWidget, get_decimal_and_layout, remove_null_columns,
 };
-
-// --- Feature-Based Conditional Rendering ---
-cfg_if! {
-    // Check if the 'header-wrapping' feature is enabled during compilation
-    if #[cfg(feature = "header-wrapping")] {
-        use egui::Color32;
-        use crate::{SortableHeaderWidget, SelectionDepth};
-    } else {
-        use crate::ExtraInteractions;
-    }
-}
 
 /// Contains a Polars DataFrame along with associated metadata, filters, and format settings.
 /// Provides methods for loading data from files, applying transformations (SQL, sorting),
@@ -273,150 +261,6 @@ impl DataFrameContainer {
         updated_filters_for_sort
     }
 
-    /*
-    /// Renders the header row of the table, including sortable buttons for each column.
-    ///
-    /// Iterates through each column name in the DataFrame. For each column, it creates
-    /// a sort button using `ui.sort_button` (from `ExtraInteractions` trait).
-    /// If a sort button is clicked, it updates the `sorted_column` state (passed mutably)
-    /// and sets the `filters` output parameter to a *new* `DataFilters` instance
-    /// containing the updated sort state, signaling that a sort is needed.
-    ///
-    /// ### Arguments
-    /// * `table_row`: The `egui_extras::TableRow` context for the header row.
-    /// * `sorted_column`: Mutable reference to the `Option<Arc<SortState>>` holding the *current* sort state.
-    ///                    This gets updated directly if a button is clicked.
-    /// * `filters`: Mutable reference to the `Option<DataFilters>` output parameter. Set to `Some` if sorting changes.
-    fn render_table_header_simple(
-        &self,
-        table_row: &mut TableRow<'_, '_>,
-        sorted_column: &mut Option<Arc<SortState>>,
-        filters: &mut Option<DataFilters>,
-    ) {
-        // Iterate through the names of all columns in the DataFrame.
-        for column_name in self.df.get_column_names() {
-            // Add a column cell to the header row.
-            table_row.col(|ui| {
-                // Determine the initial SortState for this specific column's button.
-                // If this column is already the one being sorted, use its current state (Asc/Desc).
-                // Otherwise, represent it as NotSorted.
-                let column_initial_sort_state = match &self.filters.sort {
-                    // Check if the currently sorted column (if any) matches this column name.
-                    Some(sort) if sort.is_sorted_column(column_name) => {
-                        sort.clone() // Use the existing sort state (Ascending or Descending).
-                    }
-                    // Otherwise, this column is not currently sorted.
-                    _ => Arc::new(SortState::NotSorted(column_name.to_string())),
-                };
-
-                // Center the button horizontally within the header cell.
-                ui.horizontal_centered(|ui| {
-                    // Create the sort button widget.
-                    // `ui.sort_button` handles the visual state (arrow direction) and click logic.
-                    // It takes the mutable `sorted_column` (overall sort state) and the `column_initial_sort_state`.
-                    // If clicked, it internally updates `sorted_column` by cycling through states (NotSorted -> Desc -> Asc).
-                    if ui
-                        .sort_button(sorted_column, column_initial_sort_state)
-                        .on_hover_text(column_name.as_str())
-                        .clicked()
-                    {
-                        // If the button was clicked, it means the desired sort state has changed.
-                        // We need to signal this back to the caller (`render_table`) by setting the `filters` output parameter.
-                        *filters = Some(DataFilters {
-                            // Use the newly updated sort state from the mutable `sorted_column`.
-                            sort: sorted_column.clone(),
-                            // Keep all other filter settings the same by cloning them from the current container's filters.
-                            ..self.filters.as_ref().clone()
-                        });
-                    }
-                });
-            });
-        }
-    }
-
-    /// Renders the header row for the data table, delegating cell content to `SortableHeaderWidget`.
-    ///
-    /// This function iterates through each column and uses the `sortable_wrapping_header`
-    /// trait method (implemented for `egui::Ui`) to draw the header cell content.
-    /// It then handles the click response from the widget to update the application's
-    /// sort state and signal the need for a data re-sort.
-    fn render_table_header_wrapping(
-        &self,
-        table_row: &mut TableRow<'_, '_>,
-        sorted_column: &mut Option<Arc<SortState>>, // Input/Output: Ref to the App's global sort state
-        filters: &mut Option<DataFilters>, // Output: Set to Some if filters need update (due to sort)
-    ) {
-        // 1. Iterate through each column name obtained from the DataFrame schema.
-        for column_name in self.df.get_column_names() {
-            // 2. Add a cell (`.col`) to the current `TableRow` for this column header.
-            table_row.col(|ui| {
-                // --- Cell Configuration ---
-
-                // 3. Determine the appropriate text color for the column name based on the current theme (Light/Dark).
-                let column_name_color = if ui.visuals().dark_mode {
-                    Color32::from_rgb(160, 200, 255) // Lighter color for dark mode
-                } else {
-                    Color32::from_rgb(0, 80, 160) // Darker color for light mode
-                };
-
-                // 4. Determine the *current* SortState for this specific column.
-                //    - If the global `sorted_column` (from App state) matches this `column_name`, clone that Arc.
-                //    - Otherwise, create a new Arc representing the 'NotSorted' state for this column.
-                let column_sort_state_arc: Arc<SortState> = match &self.filters.sort {
-                    Some(global_sort_state) if global_sort_state.is_sorted_column(column_name) => {
-                        global_sort_state.clone()
-                    }
-                    _ => Arc::new(SortState::NotSorted(column_name.to_string())),
-                };
-
-                // --- Widget Drawing via Trait ---
-
-                // 5. Call the custom `sortable_wrapping_header` widget function (implemented via trait on `Ui`).
-                //    This function handles drawing the icon and the wrapping, colored text label.
-                //    It returns the `egui::Response` specifically from the clickable *icon*.
-                //    We pass a borrow (`&*`) of the `SortState` inside the Arc because the widget
-                //    only needs to read it to determine the icon, not own or modify it directly.
-                let icon_response = ui.sortable_wrapping_header(
-                    column_name,
-                    &column_sort_state_arc, // Borrow the SortState data from the Arc
-                    column_name_color,
-                );
-
-                // --- Click Handling and State Update ---
-
-                // 6. Check if the response from the icon indicates it was clicked this frame.
-                if icon_response.clicked() {
-                    // 7. Calculate the *next* sort state by calling `.inc()` on the current state.
-                    //    `.inc()` is defined by the `SelectionDepth` trait implementation for `SortState`.
-                    //    It encapsulates the state transition logic (e.g., NotSorted -> Descending -> Ascending).
-                    let next_sort_state = column_sort_state_arc.inc();
-
-                    // 8. Create a *new* `Arc` containing the calculated `next_sort_state`.
-                    let next_sort_state_arc = Arc::new(next_sort_state);
-
-                    // 9. Update the application's global `sorted_column` state by assigning the *new* Arc.
-                    //    `sorted_column` is a mutable reference (`&mut`) to the `Option<Arc<SortState>>`
-                    //    likely held within `PolarsViewApp` state (`layout.rs`).
-                    *sorted_column = Some(next_sort_state_arc); // `next_sort_state_arc` is moved into the Option
-
-                    // 10. Signal to the caller (`render_table` -> `layout.rs::render_central_panel`)
-                    //     that the filters have been modified (specifically the sort part) and an update is needed.
-                    //     This is done by setting the mutable reference `filters` to `Some(...)`.
-                    *filters = Some(DataFilters {
-                        // Clone the `Arc` of the just-updated `sorted_column` state. Arc clones are cheap.
-                        sort: sorted_column.clone(),
-                        // Clone the *rest* of the filter settings from the *current* container's filters
-                        // to ensure only the sort state changes. `as_ref()` gets `&DataFilters` from `&Arc<DataFilters>`.
-                        ..self.filters.as_ref().clone()
-                    });
-
-                    // tracing::debug!("Sort click processed for {}. New global sort: {:?}", column_name, sorted_column);
-                }
-            }); // End of the closure for `table_row.col`
-        } // End of loop through column names
-    }
-    */
-
     /// Renders the header row for the data table.
     /// The appearance and interaction logic depend on Cargo features:
     /// - `header-simple`: Uses `ExtraInteractions::sort_button` for a simple, single-line button.
@@ -440,75 +284,74 @@ impl DataFrameContainer {
                 // --- End Common Setup ---
 
                 // --- Feature-Based Conditional Rendering ---
-                cfg_if! {
-                    // Check if the 'header-wrapping' feature is enabled during compilation
-                    if #[cfg(feature = "header-wrapping")] {
-                        // --- START: Wrapping Header Logic ---
+                if self.format.header_wrapping {
+                    // --- START: Wrapping Header Logic ---
 
-                        // 4a. Determine text color based on theme.
-                        let column_name_color = if ui.visuals().dark_mode {
-                            Color32::from_rgb(160, 200, 255)
-                        } else {
-                            Color32::from_rgb(0, 80, 160)
-                        };
+                    // 4a. Determine text color based on theme.
+                    let column_name_color = if ui.visuals().dark_mode {
+                        Color32::from_rgb(160, 200, 255)
+                    } else {
+                        Color32::from_rgb(0, 80, 160)
+                    };
 
-                        // 5a. Call the custom widget trait method.
-                        //     It draws the icon and wrapping text, returns icon's response.
-                        let icon_response = ui.sortable_wrapping_header(
-                            column_name,
-                            &column_sort_state_arc, // Pass borrowed SortState
-                            column_name_color,
-                        );
+                    // 5a. Call the custom widget trait method.
+                    //     It draws the icon and wrapping text, returns icon's response.
+                    let icon_response = ui.sortable_wrapping_header(
+                        column_name,
+                        &column_sort_state_arc, // Pass borrowed SortState
+                        column_name_color,
+                    );
 
-                        // 6a. Check if the *icon* was clicked.
-                        if icon_response.clicked() {
-                            // 7a. Calculate next sort state.
-                            let next_sort_state_arc = Arc::new(column_sort_state_arc.inc());
-                            // 8a. Update global state.
-                            *sorted_column = Some(next_sort_state_arc);
-                            // 9a. Signal filter change.
-                            *filters = Some(DataFilters {
-                                sort: sorted_column.clone(),
-                                ..self.filters.as_ref().clone()
-                            });
-                        }
-                        // --- END: Wrapping Header Logic ---
-                    } else { // Fallback: default or if 'header-simple' is explicitly enabled
-                        // --- START: Simple Header Logic ---
+                    // 6a. Check if the *icon* was clicked.
+                    if icon_response.clicked() {
+                        // 7a. Calculate next sort state.
+                        let next_sort_state_arc = Arc::new(column_sort_state_arc.inc());
+                        // 8a. Update global state.
+                        *sorted_column = Some(next_sort_state_arc);
+                        // 9a. Signal filter change.
+                        *filters = Some(DataFilters {
+                            sort: sorted_column.clone(),
+                            ..self.filters.as_ref().clone()
+                        });
+                    }
+                    // --- END: Wrapping Header Logic ---
+                } else {
+                    // Fallback: default or if 'header-simple' is explicitly enabled
+                    // --- START: Simple Header Logic ---
 
-                        // 4b. Use the standard `sort_button` from the `ExtraInteractions` trait.
-                        //     This widget handles drawing the (non-wrapping) label + icon
-                        //     and the click logic internally to update `*sorted_column`.
-                        //     `sort_button` takes the Arc directly.
-                        let button_response = ui.sort_button(
-                            sorted_column, // Mutably updates the Option<Arc<SortState>>
+                    // 4b. Use the standard `sort_button` from the `ExtraInteractions` trait.
+                    //     This widget handles drawing the (non-wrapping) label + icon
+                    //     and the click logic internally to update `*sorted_column`.
+                    //     `sort_button` takes the Arc directly.
+                    let button_response = ui
+                        .sort_button(
+                            sorted_column,                 // Mutably updates the Option<Arc<SortState>>
                             column_sort_state_arc.clone(), // Pass the Arc for this column's state
                         )
                         // Add standard hover text.
                         .on_hover_text(column_name.to_string());
 
-                        // 5b. Check if the button click resulted in a state change *this frame*.
-                        //     The `sort_button` widget itself modifies `sorted_column`.
-                        //     We just need to signal the change if it occurred.
-                        //     The `.clicked()` here isn't quite right - `sort_button` modifies sorted_column
-                        //     directly. We should check if `changed()` is true, as the button
-                        //     itself indicates a state change. (Or simply compare old/new sorted_column if possible)
-                        //     Let's assume `sort_button` returns a response where `.changed()`
-                        //     accurately reflects if the *output state* `sorted_column` was altered.
-                        //     *Correction:* The original simple code checked `.clicked()` and *then* assigned
-                        //     the filters. Let's stick to that pattern, assuming clicking = desire to sort.
-                         if button_response.clicked() {
-                             // 6b. Signal filter change. The `sorted_column` has *already* been updated
-                             //     internally by the `sort_button` call.
-                             *filters = Some(DataFilters {
-                                 // Clone the potentially updated state.
-                                 sort: sorted_column.clone(),
-                                 ..self.filters.as_ref().clone()
-                             });
-                         }
-                        // --- END: Simple Header Logic ---
-                    } // End of else branch (simple header)
-                } // End of cfg_if block
+                    // 5b. Check if the button click resulted in a state change *this frame*.
+                    //     The `sort_button` widget itself modifies `sorted_column`.
+                    //     We just need to signal the change if it occurred.
+                    //     The `.clicked()` here isn't quite right - `sort_button` modifies sorted_column
+                    //     directly. We should check if `changed()` is true, as the button
+                    //     itself indicates a state change. (Or simply compare old/new sorted_column if possible)
+                    //     Let's assume `sort_button` returns a response where `.changed()`
+                    //     accurately reflects if the *output state* `sorted_column` was altered.
+                    //     *Correction:* The original simple code checked `.clicked()` and *then* assigned
+                    //     the filters. Let's stick to that pattern, assuming clicking = desire to sort.
+                    if button_response.clicked() {
+                        // 6b. Signal filter change. The `sorted_column` has *already* been updated
+                        //     internally by the `sort_button` call.
+                        *filters = Some(DataFilters {
+                            // Clone the potentially updated state.
+                            sort: sorted_column.clone(),
+                            ..self.filters.as_ref().clone()
+                        });
+                    }
+                    // --- END: Simple Header Logic ---
+                } // End of else branch (simple header)
             }); // End of table_row.col closure
         } // End of loop through column names
     }
@@ -620,7 +463,7 @@ impl DataFrameContainer {
 
         // Calculate an initial width for columns if not using auto-sizing.
         let initial_col_width = (available_space / col_number).max(1.0); // Ensure at least 1.0 width.
-        let header_height = style.spacing.interact_size.y + 2.0 * style.spacing.item_spacing.y; // Height for header row.
+        let header_height = style.spacing.interact_size.y + 3.0 * style.spacing.item_spacing.y; // Height for header row.
         let min_col_width = style.spacing.interact_size.x.max(initial_col_width / 4.0); // Minimum width a column can be resized to.
 
         // --- Key Change: Define the column sizing strategy based on `auto_col_width` ---
