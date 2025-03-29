@@ -66,8 +66,8 @@ default = ["format-simple"]
 format-simple =  [] # mod decimal_and_layout_v1: fn get_decimal_and_layout()
 format-special = [] # mod decimal_and_layout_v2: fn get_decimal_and_layout()
 
-# cargo run --features format-special,header-wrapping
-# cargo b -r && cargo install --path=. --no-default-features --features header-simple
+# cargo run --features format-special
+# cargo b -r && cargo install --path=. --features format-special
 
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html
