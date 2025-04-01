@@ -1,0 +1,146 @@
+PolarsView: Fast, interactive viewer for CSV, Json, NDJson, Parquet files using Polars and egui.
+
+File Relationships / Flow & Core Responsibilities (Numbered Flow)
+
+**Explanation:**
+- Arrows (`->`) indicate primary function calls, data flow, or dependencies.
+- Numbers (`1.`, `2.`, ...) suggest a common execution sequence, particularly during startup and core UI interactions.
+- Indentation shows nested calls or related responsibilities.
+- `(async)` indicates an operation that is typically run asynchronously via Tokio.
+
+**[ Startup Flow ]**
+
+main.rs (Entry Point)
+ |
+ 1. Parses CLI args -> args.rs (Defines `Arguments` struct using `clap`)
+ |
+ 2. Initializes `eframe` and App -> layout.rs (`PolarsViewApp`)
+    |
+    +-> Creates `tokio` runtime within `PolarsViewApp::default()`
+    |
+    +-> Applies initial theme -> traits.rs (`MyStyle` implementation for `egui::Context`)
+    |
+    +-- If file argument provided:
+        |
+        3. Creates initial filter state -> filters.rs (`DataFilters::new`) from `args::Arguments`
+        |   |-> May use `std::path` (via `traits::PathExtension`) for path operations.
+        |
+        4. Starts initial data load -> layout.rs (`PolarsViewApp::new_with_future`)
+            |
+            5. Calls -> layout.rs (`run_data_future`) to manage async task
+                |
+                6. Spawns future from -> container.rs (`DataFrameContainer::load_data(filters, format::default())`) (async)
+                   |
+                   7. -> Reads data using -> filters.rs (`get_df_and_extension()`, `read_csv_data`, `read_json_data`, etc.)
+                   |     |-> Uses file format logic from -> extension.rs (`FileExtension`)
+                   |     |-> May call helpers -> polars.rs (`remove_null_columns`)
+                   |     |-> Returns `(DataFrame, FileExtension)` or `error::PolarsViewError`
+                   |
+                   8. -> If SQL specified, executes using Polars SQLContext.
+                   |
+                   9. -> Packages result into -> container.rs (`DataFrameContainer`)
+                          (Contains Arcs of `DataFrame`, `DataFilters`, `DataFormat`, etc.)
+
+
+**[ Main UI Loop (`layout.rs::update`) ]**
+
+layout.rs (`PolarsViewApp::update`) - Called every frame by `eframe`
+ |
+ 10. Handles Global Input (Keyboard Shortcuts: Ctrl+O/S/A, Drag-n-Drop)
+ |   |-> Calls `handle_open_file`, `handle_save`, `handle_save_as`
+ |      |
+ |      +-> `handle_open_file`:
+ |      |   |-> Uses -> file_dialog.rs (`open_file`) (async via `runtime.block_on`)
+ |      |   |-> Updates `applied_filters` (from `filters.rs`) path.
+ |      |   |-> Triggers `load_data` (Step 5-9) if path valid.
+ |      |
+ |      +-> `handle_save`/`save_as`:
+ |          |-> Uses -> file_dialog.rs (`save`/`save_as`) (async via `runtime.spawn`)
+ |          |   |-> Interacts with `Polars` writers.
+ |          |   |-> Uses `container::DataFrameContainer` (data + metadata).
+ |
+ 11. Checks Async Results -> layout.rs (`check_data_pending`)
+ |   |-> Polls `oneshot::Receiver` (`pipe`).
+ |   |-> On Ok(Ok(container)):
+ |   |    |-> Updates `data_container: Option<Arc<DataFrameContainer>>`.
+ |   |    |-> Updates `applied_filters` state.
+ |   |    |-> Updates `applied_format` state.
+ |   |    |-> Updates `metadata: Option<FileMetadata>`.
+ |   |-> On Ok(Err(error)):
+ |   |    |-> Creates Error notification -> traits.rs (`Notification`, `Error` impl).
+ |   |    |-> Sets `notification: Option<Box<dyn Notification>>`.
+ |   |-> Uses -> error.rs (`PolarsViewResult`, `PolarsViewError`).
+ |
+ 12. Checks & Renders Notification -> layout.rs (`check_notification`)
+ |   |-> Calls `notification.show()` (defined in `traits.rs`).
+ |
+ 13. Renders UI Panels (order matters):
+     |
+     +-> Top: render_menu_bar()
+     |     (Menu actions trigger Step 10 handlers)
+     |
+     +-> Left: render_side_panel()
+     |     |-> Manages collapsible sections for Metadata, Schema, Format, Query.
+     |     |
+     |     +-> "Format" Section:
+     |     |   |-> Calls format.rs (`render_format`) for UI widgets.
+     |     |   |   |-> Reads/modifies `applied_format: DataFormat`.
+     |     |   |   |-> Uses default alignments from `format.rs::DEFAULT_ALIGNMENTS`.
+     |     |   |
+     |     |   |-> *If UI detects change*: Returns `Some(new_format)`.
+     |     |      |-> Triggers -> layout.rs (`run_data_future`) with:
+     |     |          |-> container.rs (`update_format(current_container, new_format)`) (async)
+     |     |              |-> Creates *new* `DataFrameContainer` state.
+     |     |
+     |     +-> "Query" Section:
+     |     |   |-> Calls filters.rs (`render_query`) for UI widgets.
+     |     |   |   |-> Reads/modifies `applied_filters: DataFilters`.
+     |     |   |   |-> Uses -> sqls.rs (`sql_commands`, `DEFAULT_QUERY`) for examples.
+     |     |   |
+     |     |   |-> *If UI detects change*: Returns `Some(new_filters)`.
+     |     |      |-> Triggers -> layout.rs (`run_data_future`) with:
+     |     |          |-> container.rs (`load_data(new_filters, current_format)`) (async, Steps 6-9).
+     |     |
+     |     +-> "Metadata"/"Schema" Sections:
+     |         |-> Calls metadata.rs (`render_metadata`, `render_schema`) if `metadata` exists.
+     |
+     +-> Bottom: render_bottom_panel()
+     |     (Displays file path, sort state, processing spinner)
+     |
+     +-> Center: render_central_panel()
+           |-> Disables UI via `add_enabled_ui` if `check_data_pending` is true.
+           |
+           14. If `data_container` exists:
+               |
+               +-> Calls -> container.rs (`render_table`)
+                    |
+                    15. -> Calls -> container.rs (`build_table`)
+                    |       |-> Uses `egui_extras::TableBuilder`.
+                    |       |-> Reads `format.rs::DataFormat` (e.g., `auto_col_width`, `header_padding`).
+                    |
+                    16. -> Provides header closure calling -> container.rs (`render_table_header`)
+                    |       |-> Reads sort state -> sort.rs (`SortBy` vec in `container`).
+                    |       |-> Uses sort interaction state -> sort.rs (`HeaderSortState`).
+                    |       |-> Uses header rendering widget -> traits.rs (`SortableHeaderRenderer` impl for `egui::Ui`).
+                    |       |-> *If header clicked*: Calculates *new* `Vec<SortBy>` state and returns it.
+                    |
+                    17. -> Provides body closure calling -> container.rs (`render_table_row`)
+                            |-> Uses cell formatting -> **decimal_and_layout_vX.rs** (via `lib.rs` feature flag) -> `get_decimal_and_layout`
+                            |   |-> Reads `format.rs::DataFormat` / `filters.rs::DataFilters` (depending on version).
+                            |-> Calls value formatter -> container.rs (`format_cell_value`)
+
+               18. *If `render_table` returned new sort criteria (from step 16)*:
+                   |-> Triggers -> layout.rs (`run_data_future`) with:
+                       |-> container.rs (`apply_sort(current_container, new_criteria)`) (async)
+                           |-> Uses Polars `sort()` method.
+                           |-> Creates *new* `DataFrameContainer` with sorted `df`.
+
+**Summary:**
+- `main.rs` initializes and potentially starts the first load.
+- `layout.rs` is the central UI coordinator, managing state, rendering panels, handling top-level events, and orchestrating async operations via `run_data_future` and `check_data_pending`.
+- `container.rs` holds the data (`DataFrameContainer`) and contains the core async data *manipulation* logic (`load_data`, `update_format`, `apply_sort`) and table *rendering* logic.
+- `filters.rs` manages *loading/query* settings (`DataFilters`), UI for these settings, and data reading logic.
+- `format.rs` manages *display* settings (`DataFormat`) and UI for these settings.
+- `file_dialog.rs` handles system file interactions (open/save).
+- `traits.rs`, `sort.rs`, `metadata.rs`, `extension.rs`, `polars.rs`, `sqls.rs`, `error.rs`, `decimal_and_layout_vX.rs` provide supporting structs, functions, traits, and UI elements used by the main components.
+- `lib.rs` ties modules together and manages feature flags.
