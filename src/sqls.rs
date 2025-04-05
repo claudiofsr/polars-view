@@ -305,13 +305,20 @@ FROM
 /// Helper function to generate an SQL example that creates a new table (subset of columns and rows).
 /// Only generates if specific column indices/types exist in the schema.
 fn new_table(schema: &Schema) -> Option<String> {
-    // 1. Try to find potential string columns.
+    // 1.1 Try to find potential string columns.
     let col_str_vec = get_cols_by_type(schema, |dtype| dtype.is_string());
     let mut col_str_0: Option<&str> = None;
     let mut col_str_1: Option<&str> = None;
     if let Some(ref vec) = col_str_vec {
         col_str_0 = vec.first().copied(); // .copied() converts Option<&&str> to Option<&str>
         col_str_1 = vec.get(1).copied();
+    }
+
+    // 1.2 Try to find potential integer columns.
+    let col_int_vec = get_cols_by_type(schema, |dtype| dtype.is_integer());
+    let mut col_int_0: Option<&str> = None;
+    if let Some(ref vec) = col_int_vec {
+        col_int_0 = vec.first().copied(); // .copied() converts Option<&&str> to Option<&str>
     }
 
     // 2. Use `if let` to safely extract required columns by index or fallback to found string columns.
@@ -326,7 +333,7 @@ fn new_table(schema: &Schema) -> Option<String> {
         get_col_name(schema, 2),
         get_col_name_with_dtype(schema, 3, &DataType::String).or(col_str_0),
         get_col_name_with_dtype(schema, 9, &DataType::String).or(col_str_1),
-        get_col_name(schema, 10),
+        get_col_name_with_dtype(schema, 10, &DataType::Int64).or(col_int_0),
     ) {
         // 3. If all required columns are present, build the SQL query string.
         Some(format!(
