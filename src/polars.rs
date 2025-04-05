@@ -113,6 +113,93 @@ pub fn replace_strings_with_null(
         .collect() // Execute the lazy plan and return the resulting DataFrame
 }
 
+/// Replaces values with null across ALL columns if their trimmed string representation
+/// matches any entry in the `null_value_list`.
+///
+/// This function operates on every column:
+/// 1.  It casts the value to its string representation (`DataType::String`).
+/// 2.  It trims leading and trailing whitespace from this string representation.
+/// 3.  It checks if the resulting trimmed string exactly matches any string
+///     in the provided `null_value_list`.
+/// 4.  If a match is found, the original value in that cell is replaced with `NULL`.
+///
+/// Existing null values remain null. Non-matching values remain unchanged.
+///
+/// ### Important Considerations:
+///
+/// *   **Type Casting & Trimming:** Relies on Polars' default casting to String,
+///     followed by whitespace trimming. Ensure strings in `null_value_list`
+///     match the *trimmed* string representation of numbers, booleans, dates, etc.
+///     (e.g., "3.45", "true", "2023-01-01", "NA"). Values like " N/A " in the original
+///     data would be trimmed to "N/A" before comparison.
+/// *   **Ambiguity:** A string like "123" in the list will match integer `123`,
+///     float `123.0` (if cast as "123"), and string `" 123 "` (after trimming).
+/// *   **Complex Types:** Casting complex types (List, Struct, Binary) to String might
+///     yield unpredictable representations or errors. Use with caution.
+/// *   **Performance:** Casting all values to strings and performing string operations
+///     can impact performance on large datasets compared to type-specific methods.
+///
+/// ### Arguments
+///
+/// *   `dataframe`: The input DataFrame to be processed.
+/// *   `null_value_list`: A slice of string literals representing values to be nullified
+///     *after trimming* (e.g., `&["NA", "", "999", "true", "2024-01-15"]`). Include `""`
+///     if empty or whitespace-only strings should become null after trimming.
+///
+/// ### Returns
+///
+/// A `Result` containing the modified DataFrame with specified values replaced by null
+/// across all columns based on trimmed string representation matching, or a `PolarsError`.
+pub fn replace_values_with_null(
+    dataframe: DataFrame,
+    null_value_list: &[&str], // Strings to match *after* trimming
+) -> Result<DataFrame, PolarsError> {
+    // If the list is empty, no replacements needed.
+    if null_value_list.is_empty() {
+        return Ok(dataframe);
+    }
+
+    // --- Prepare for Matching ---
+
+    // Create a Polars Series containing the *strings* to be treated as null markers.
+    // Ensure it's DataType::String for the `is_in` comparison.
+    let null_values_series =
+        Series::new("null_vals".into(), null_value_list).cast(&DataType::String)?;
+
+    // --- Define Replacement Logic ---
+
+    // Condition:
+    // 1. Select the current column value: `all()`
+    // 2. Cast it to String: `.cast(DataType::String)`
+    // 3. Apply string operations: `.str()`
+    // 4. Trim whitespace: `.strip_chars(lit(NULL))` (lit(NULL) targets standard whitespace)
+    // 5. Check if the trimmed string is in our list: `.is_in(lit(null_values_series))`
+    let condition = all() // Represents the current column being processed
+        .cast(DataType::String) // Cast its value to String for comparison/trimming
+        .str()
+        .strip_chars(lit(NULL)) // Trim whitespace from the string representation
+        .is_in(lit(null_values_series.clone())); // Check trimmed string against the list
+
+    // Define the full replacement expression:
+    let replacement_expr = when(condition) // WHEN the trimmed string representation matches...
+        // THEN replace with a NULL value (type inferred from `otherwise` branch).
+        .then(lit(NULL))
+        // OTHERWISE (no match), keep the original value of the column.
+        .otherwise(all())
+        // Ensure the output column retains the original name.
+        .name()
+        .keep();
+
+    // --- Apply Transformation ---
+
+    // Apply the expression using `with_columns`. Polars attempts this on all columns
+    // because the expression internally uses `all()`.
+    dataframe
+        .lazy()
+        .with_columns([replacement_expr]) // Apply the universal trimmed replacement
+        .collect() // Execute the lazy plan
+}
+
 /// Removes columns from the DataFrame that consist entirely of null values.
 ///
 /// This optimized version avoids cloning full columns. It works by:
@@ -469,6 +556,106 @@ mod tests_replace_strings_with_null {
             df_output,
             df_expected
         );
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests_replace_values_with_null {
+    use super::*;
+
+    /// Comprehensive test covering various data types and trimming.
+    /// `cargo test -- --show-output test_universal_replacement_mixed_types`
+    #[test]
+    fn test_universal_replacement_mixed_types() -> Result<(), PolarsError> {
+        // Input DataFrame - df! infers i32 and datetime[ms] here
+        let df_input = df![
+            "col_str" =>    &[Some("Keep"), Some(" NA "), Some("<N/D>"), Some("  "), None, Some("999"), Some("3.45"), Some("false"), Some("2024-01-15")],
+            "col_int" =>    &[Some(123i32), Some(999i32), Some(-10i32), Some(999i32), Some(200i32), Some(0i32), Some(999i32), Some(1i32), Some(2i32)], // Explicit i32
+            "col_float" =>  &[Some(1.1), Some(3.45), Some(-2.2), None, Some(999.0), Some(0.0), Some(123.456), Some(3.450), Some(5.0)], // f64 inferred
+            "col_bool" =>   &[Some(true), Some(false), None, Some(true), Some(false), Some(true), Some(true), Some(false), Some(true)], // bool inferred
+        ]?;
+
+        // Define null markers - **ADJUST DATETIME MARKER**
+        let null_markers = &[
+            "",      // Matches "  " after trimming
+            "NA",    // Matches " NA " after trimming
+            "<N/D>", // Exact match
+            "999",   // Will match integer 999 and string "999"
+            "3.45",  // Will match float 3.45 and string "3.45"
+            "false", // Matches relevant bools/strings
+            "2024-01-15",
+        ];
+
+        // Expected DataFrame - let df! infer types matching input (i32, datetime[ms])
+        let df_expected = df![
+             "col_str" =>    &[Some("Keep"), None, None, None, None, None, None, None, None],
+             "col_int" =>    &[Some(123i32), None, Some(-10i32), None, Some(200i32), Some(0i32), None, Some(1i32), Some(2i32)], // Use i32
+             "col_float" =>  &[Some(1.1), None, Some(-2.2), None, Some(999.0), Some(0.0), Some(123.456), None, Some(5.0)],
+             "col_bool" =>   &[Some(true), None, None, Some(true), None, Some(true), Some(true), None, Some(true)],
+        ]?;
+
+        println!("Input:\n{}", df_input);
+        println!("Null Markers: {:?}", null_markers);
+        let df_output = replace_values_with_null(df_input, null_markers)?;
+        println!("Output:\n{}", df_output);
+        println!("Expected:\n{}", df_expected);
+
+        // Compare schema and values
+        assert_eq!(
+            df_output.schema(),
+            df_expected.schema(),
+            "Schemas do not match"
+        );
+        assert!(
+            df_output.equals_missing(&df_expected),
+            "DataFrames did not match for universal mixed type test."
+        );
+
+        Ok(())
+    }
+
+    /// Test whitespace-only strings specifically.
+    /// `cargo test -- --show-output test_universal_whitespace_handling`
+    #[test]
+    fn test_universal_whitespace_handling() -> Result<(), PolarsError> {
+        let df_input = df!(
+            "col_a" => &[Some("   "), Some("\t\n"), Some("Keep"), Some(" Val "), None, Some("")],
+        )?;
+
+        // Case 1: Target empty string "" -> whitespace should be nullified
+        let null_markers_with_empty = &["", "Val"]; // Match empty string and "Val" (after trim)
+        let df_expected_with_empty = df!(
+            "col_a" => &[None::<&str>, None::<&str>, Some("Keep"), None, None, None],
+        )?;
+        let df_output_with_empty = replace_values_with_null(
+            df_input.clone(), // Clone input for the first case
+            null_markers_with_empty,
+        )?;
+        assert!(
+            df_output_with_empty.equals_missing(&df_expected_with_empty),
+            "Whitespace not nullified when '' IS targeted.\nOutput:\n{:?}\nExpected:\n{:?}",
+            df_output_with_empty,
+            df_expected_with_empty
+        );
+
+        // Case 2: Do NOT target empty string "" -> whitespace should NOT be nullified
+        let null_markers_without_empty = &["Val"]; // Only target "Val" (after trim)
+        let df_expected_without_empty = df!(
+            // "   ", "\t\n", "" remain because "" is not targeted after trimming them
+            "col_a" => &[Some("   "), Some("\t\n"), Some("Keep"), None, None, Some("")],
+        )?;
+        let df_output_without_empty = replace_values_with_null(
+            df_input.clone(), // Clone input for the second case
+            null_markers_without_empty,
+        )?;
+        assert!(
+            df_output_without_empty.equals_missing(&df_expected_without_empty),
+            "Whitespace incorrectly nullified when '' NOT targeted.\nOutput:\n{:?}\nExpected:\n{:?}",
+            df_output_without_empty,
+            df_expected_without_empty
+        );
+
         Ok(())
     }
 }
