@@ -148,11 +148,13 @@ OR
         commands.push(format!(
             "\
 -- Select specific columns by name
+-- Use LIMIT to specify records to return.
 
 SELECT
     `{col0}`,
     \"{col1}\"
-FROM AllData;
+FROM AllData
+Limit 10;
 "
         ));
 
