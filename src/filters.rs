@@ -332,11 +332,6 @@ impl DataFilters {
             rows_max
         );
 
-        // Parse the comma-separated `null_values` string into the format Polars expects.
-        let null_value_list: Vec<&str> = self.parse_null_values();
-        let pl_small_str: Vec<PlSmallStr> = null_value_list.iter().map(|&s| s.into()).collect();
-        tracing::debug!("Parsed null values: {:?}", null_value_list);
-
         // Configure the LazyCsvReader using settings from `self`.
         let lazyframe = LazyCsvReader::new(&self.absolute_path)
             .with_low_memory(false) // Can be set to true for lower memory usage at cost of speed.
@@ -347,7 +342,7 @@ impl DataFilters {
             .with_infer_schema_length(Some(self.infer_schema_rows)) // Use filter setting for inference.
             .with_ignore_errors(true) // Rows with parsing errors become nulls instead of stopping the read.
             .with_missing_is_null(true) // Treat empty fields ("") as null.
-            .with_null_values(Some(NullValues::AllColumns(pl_small_str))) // Apply custom null values.
+            .with_null_values(None) // Apply fn replace_strings_with_null()
             .with_n_rows(rows_max) // Apply row limit if specified.
             // .with_decimal_comma(true) // Uncomment if files use ',' as decimal separator.
             .finish()?; // Finalize configuration and create the LazyFrame.

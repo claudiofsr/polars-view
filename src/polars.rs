@@ -31,18 +31,18 @@ pub fn format_columns(dataframe: DataFrame, decimals: u32) -> Result<DataFrame, 
 }
 
 /// Replaces string values with null if the value, after trimming whitespace,
-/// exactly matches one of the specified `replace_with_null`.
+/// exactly matches one of the specified `null_value_list`.
 ///
 /// Existing null values in the column are preserved. Uses `dtype_col` for selection
 /// and `.name().keep()` to ensure original column names are preserved.
 ///
 /// To nullify empty strings or strings containing only whitespace, ensure `""` is included
-/// in the `replace_with_null` list.
+/// in the `null_value_list` list.
 ///
 /// ### Arguments
 ///
 /// * `dataframe`: The input DataFrame to be processed. Must contain columns of DataType::String.
-/// * `replace_with_null`: A slice of string literals (e.g., `&["NA", "N/A", ""]`)
+/// * `null_value_list`: A slice of string literals (e.g., `&["NA", "N/A", ""]`)
 ///   that should trigger null replacement when matched against the trimmed column value.
 ///
 /// ### Returns
@@ -52,9 +52,9 @@ pub fn format_columns(dataframe: DataFrame, decimals: u32) -> Result<DataFrame, 
 pub fn replace_strings_with_null(
     // Renamed as per user code
     dataframe: DataFrame,
-    replace_with_null: &[&str],
+    null_value_list: &[&str],
 ) -> Result<DataFrame, PolarsError> {
-    if replace_with_null.is_empty() {
+    if null_value_list.is_empty() {
         return Ok(dataframe);
     }
 
@@ -64,7 +64,7 @@ pub fn replace_strings_with_null(
     // Create a Polars Series containing the strings to be treated as null.
     // It's important that this Series contains the *exact* values to match against the trimmed strings.
     let null_values_series =
-        Series::new("null_vals".into(), replace_with_null).cast(&DataType::String)?; // Cast to match target column type
+        Series::new("null_vals".into(), null_value_list).cast(&DataType::String)?; // Cast to match target column type
 
     // --- Define Condition ---
 
