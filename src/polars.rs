@@ -30,178 +30,6 @@ pub fn format_columns(dataframe: DataFrame, decimals: u32) -> Result<DataFrame, 
         .collect() // Collect the results back into an eager DataFrame.
 }
 
-/// Formats a DataFrame by rounding all Float32 and Float64 columns to a specified number of decimal places.
-///
-/// Other column types remain unchanged.
-#[allow(dead_code)]
-pub fn format_columns_bad_performance(
-    dataframe: DataFrame,
-    decimals: u32,
-) -> Result<DataFrame, PolarsError> {
-    dataframe
-        .lazy()
-        .with_columns([all() // Select all columns
-            .map(
-                // Apply the rounding function to each column.
-                move |column| round_float_columns(column, decimals),
-                // Indicate that the output type will be the same as the input type.
-                GetOutput::same_type(),
-            )])
-        .collect() // Collect the results back into an eager DataFrame.
-}
-
-/// Rounds Float32 and Float64 Series to the specified number of decimal places.
-///
-/// Other Series types are returned unchanged.
-pub fn round_float_columns(column: Column, decimals: u32) -> Result<Option<Column>, PolarsError> {
-    match column.as_series() {
-        // Attempt to get a Series from the Column
-        Some(series) => {
-            // Check if the series data type is a floating point type.
-            if series.dtype().is_float() {
-                // Round the Series to the specified number of decimals.
-                series.round(decimals).map(|s| Some(s.into_column()))
-            } else {
-                // If it's not a floating-point series, return the original column.
-                Ok(Some(column))
-            }
-        }
-        None => Ok(Some(column)),
-    }
-}
-
-/// Removes empty or whitespace-only strings from String columns, replacing them with null.
-/// Existing null values are preserved. Uses `dtype_col` for selection and `.name().keep()`
-/// to ensure original column names are preserved.
-///
-/// ### Arguments
-///
-/// * `dataframe`: The input DataFrame to be processed.
-///
-/// ### Returns
-///
-/// A `Result` containing the new DataFrame with cleaned values or a `PolarsError`.
-#[allow(dead_code)]
-pub fn replace_blank_strings_with_null(dataframe: DataFrame) -> Result<DataFrame, PolarsError> {
-    // Selector for all String columns
-    let string_cols_selector = dtype_col(&DataType::String); // Target String type
-
-    // Define the condition: is the trimmed string value empty?
-    // Note: Original NULL values will evaluate to NULL/false here, and be handled by `otherwise`.
-    let condition = string_cols_selector
-        .clone() // Clone needed as selector is used again in `otherwise`
-        .str()
-        .strip_chars(lit(NULL)) // Remove leading/trailing whitespace
-        .eq(lit("")); // Check if the result is an empty string
-
-    dataframe
-        .lazy()
-        .with_columns([
-            // Apply expression to all columns matched by the selector
-            when(condition) // WHEN the trimmed string is empty
-                .then(lit(NULL).cast(DataType::String)) // THEN replace with NULL
-                .otherwise(string_cols_selector) // OTHERWISE keep the original value (preserves non-empty strings and original nulls)
-                // feature = "dtype-struct"
-                // even thought the alias yields a different column name,
-                // `keep` will make sure that the original column name is used
-                // Ensure the output column retains the name of the input column it processed
-                .name()
-                .keep(),
-        ])
-        .collect()
-}
-
-/// Removes empty or whitespace-only strings from String columns, replacing them with null.
-///
-/// Columns of other data types remain untouched.
-/// This function utilizes optimized Polars expressions for better performance,
-/// building expressions individually per column to avoid name clashes.
-///
-/// ### Arguments
-///
-/// * `dataframe`: The input DataFrame to be processed.
-///
-/// ### Returns
-///
-/// A `Result` containing the new DataFrame with cleaned values or a `PolarsError`.
-#[allow(dead_code)]
-pub fn replace_blank_strings_with_null_verbose(
-    dataframe: DataFrame,
-) -> Result<DataFrame, PolarsError> {
-    let mut expressions_to_apply = Vec::new();
-
-    // Iterate through the fields (columns) in the DataFrame's schema
-    for field in dataframe.schema().iter_fields() {
-        // --- Target DataType::String as requested for v0.40.x ---
-        if *field.dtype() == DataType::String {
-            let col_name = field.name().as_str();
-            let col_expr = col(col_name); // Get expression for the specific column name
-
-            // Define the condition: is the trimmed string value empty?
-            // Note: Original NULL values will evaluate to NULL/false here, and be handled by `otherwise`.
-            let condition = col_expr
-                .clone() // Clone needed as selector is used again in `otherwise`
-                .str()
-                .strip_chars(lit(NULL)) // Remove leading/trailing whitespace
-                .eq(lit("")); // Check if the result is an empty string
-
-            // Build the when/then/otherwise expression *for this column*
-            let expr = when(condition)
-                .then(lit(NULL).cast(DataType::String)) // Replace with NULL (String type)
-                .otherwise(col_expr) // Keep original value if condition is false
-                .alias(col_name); // *** Crucial: Alias the result back to the original column name ***
-
-            expressions_to_apply.push(expr);
-        }
-        // Columns of other types are implicitly kept as they are not included in `expressions_to_apply`
-    }
-
-    // If no String columns were found, no expressions were generated,
-    // so we can return the original DataFrame early.
-    if expressions_to_apply.is_empty() {
-        return Ok(dataframe);
-    }
-
-    // Apply the list of generated expressions (one per String column)
-    dataframe
-        .lazy()
-        .with_columns(expressions_to_apply) // Pass the Vec<Expr>
-        .collect()
-}
-
-#[allow(dead_code)]
-pub fn replace_blank_strings_with_null_bad_performance(
-    dataframe: DataFrame,
-) -> Result<DataFrame, PolarsError> {
-    dataframe
-        .lazy()
-        .with_columns([all() // Select all columns
-            .map(remove_nulls, GetOutput::same_type())])
-        .collect() // Collect the results back into an eager DataFrame.
-}
-
-pub fn remove_nulls(column: Column) -> Result<Option<Column>, PolarsError> {
-    if column.dtype().is_string() {
-        let new_col = column
-            .str()?
-            .into_iter()
-            // map: Some("") -> None
-            .map(|option_str: Option<&str>| {
-                if option_str.is_some_and(|s| !s.trim().is_empty()) {
-                    option_str
-                } else {
-                    None
-                }
-            })
-            .collect::<StringChunked>()
-            .into_column();
-
-        Ok(Some(new_col))
-    } else {
-        Ok(Some(column))
-    }
-}
-
 /// Replaces string values with null if the value, after trimming whitespace,
 /// exactly matches one of the specified `null_values_to_replace`.
 ///
@@ -304,6 +132,15 @@ mod tests_format_columns {
             "opt_float" => &[Some(1.0), None, Some(3.45677)],
         )?;
 
+        let df_expected = df!(
+            "int_col" => &[Some(1), Some(2), None],
+            "f32_col" => &[Some(1.23f32), None, Some(3.99f32)],
+            "f64_col" => &[None, Some(10.11), Some(-5.56)],
+            "str_col" => &[Some("a"), Some("b"), Some("c")],
+            "float_col" => &[1.12, 2.57, 3.97],
+            "opt_float" => &[Some(1.0), None, Some(3.46)],
+        )?;
+
         dbg!(&df_input);
 
         let decimals = 2;
@@ -311,23 +148,12 @@ mod tests_format_columns {
 
         dbg!(&df_output);
 
-        // Expected results
-        let expected_f32 = Column::new("f32_col".into(), &[Some(1.23f32), None, Some(3.99f32)]);
-        let expected_f64 = Column::new("f64_col".into(), &[None, Some(10.11), Some(-5.56)]);
-        let expected_int = Column::new("int_col".into(), &[Some(1), Some(2), None]); // Unchanged
-        let expected_str = Column::new("str_col".into(), &[Some("a"), Some("b"), Some("c")]); // Unchanged
-        let column1 = Column::new("float_col".into(), [1.12, 2.57, 3.97]);
-        let column2 = Column::new("opt_float".into(), [Some(1.00), None, Some(3.46)]);
-
-        // Validate column types and values
-        assert_eq!(df_output.column("int_col")?, &expected_int);
-        assert_eq!(df_output.column("str_col")?, &expected_str);
-        assert_eq!(df_output.column("f32_col")?, &expected_f32);
-        assert_eq!(df_output.column("f64_col")?, &expected_f64);
-        assert_eq!(df_output.column("f32_col")?.dtype(), &DataType::Float32);
-        assert_eq!(df_output.column("f64_col")?.dtype(), &DataType::Float64);
-        assert_eq!(df_output["float_col"], column1);
-        assert_eq!(df_output["opt_float"], column2);
+        assert!(
+            df_output.equals_missing(&df_expected),
+            "Failed round float columns.\nOutput:\n{:?}\nExpected:\n{:?}",
+            df_output,
+            df_expected
+        );
 
         Ok(())
     }
@@ -363,88 +189,6 @@ mod tests_format_columns {
         println!("Output DataFrame (decimals=0):\n{}", df_output);
         println!("Expected DataFrame (decimals=0):\n{}", df_expected);
         assert!(df_output.equals_missing(&df_expected));
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests_replace_blank_strings_with_null {
-    use super::*;
-    use polars::df; // Macro to create DataFrames easily
-
-    /// `cargo test -- --show-output test_replace_blank_strings_with_null`
-    #[test]
-    fn remove_null_and_empty_strings() -> Result<(), PolarsError> {
-        let df_input = df!(
-            "col_a" => &[Some(1), Some(2), Some(3), Some(4), Some(5)],
-            "col_b" => &[Some("  hello "), Some(""), Some("   "), None, Some("world")],
-            "col_c" => &[Some(true), Some(false), None, Some(true), Some(false)],
-            "col_d" => &[None, Some("  test  "), Some(""), Some(" ok "), None::<&str>]
-        )?;
-
-        let df_expected = df!(
-            "col_a" => &[Some(1), Some(2), Some(3), Some(4), Some(5)], // Untouched
-            "col_b" => &[Some("  hello "), None, None, None, Some("world")], // "" and "   " become None
-            "col_c" => &[Some(true), Some(false), None, Some(true), Some(false)], // Untouched
-            "col_d" => &[None, Some("  test  "), None, Some(" ok "), None] // "" becomes None
-        )?;
-
-        dbg!(&df_input);
-        let df_output = replace_blank_strings_with_null(df_input)?;
-        dbg!(&df_output);
-
-        assert!(
-            df_output.equals_missing(&df_expected),
-            "DataFrames did not match.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn no_string_columns() -> Result<(), PolarsError> {
-        let df_input = df!(
-            "col_a" => &[Some(1), Some(2), None],
-            "col_c" => &[Some(true), Some(false), Some(true)]
-        )?;
-        let df_expected = df_input.clone(); // Expected to be identical
-
-        dbg!(&df_input);
-        let df_output = replace_blank_strings_with_null(df_input)?;
-        dbg!(&df_output);
-
-        assert!(
-            df_output.equals_missing(&df_expected),
-            "DataFrames did not match.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn all_null_or_empty_string_column() -> Result<(), PolarsError> {
-        let df_input = df!(
-            "col_a" => &[Some(1), Some(2), Some(3)],
-            "col_b" => &[None, Some(""), Some("  ")]
-        )?;
-        let df_expected = df!(
-            "col_a" => &[Some(1), Some(2), Some(3)],
-            "col_b" => &[None::<&str>, None::<&str>, None::<&str>] // Everything should become None
-        )?;
-
-        dbg!(&df_input);
-        let df_output = replace_blank_strings_with_null(df_input)?;
-        dbg!(&df_output);
-
-        assert!(
-            df_output.equals_missing(&df_expected),
-            "DataFrames did not match.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
-        );
         Ok(())
     }
 }
