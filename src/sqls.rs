@@ -127,7 +127,7 @@ pub fn sql_commands(schema: &Schema) -> Vec<String> {
     let mut commands: Vec<String> = vec![DEFAULT_QUERY.to_string()];
 
     // 3. Add null filtering examples.
-    if let Some(col0) = get_col_name(schema, 0) {
+    if let (Some(col0), Some(col1)) = (get_col_name(schema, 0), get_col_name(schema, 1)) {
         commands.push(format!(
             "\
 -- Filter rows where column value:
@@ -138,7 +138,7 @@ FROM AllData
 WHERE 
     `{col0}` IS NULL
 OR
-    `{col0}` IS NOT NULL;
+    `{col1}` IS NOT NULL;
 "
         ));
     }
