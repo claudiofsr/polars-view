@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::{
     DataFilters, DataFormat, FileExtension, HeaderSortState, PolarsViewError, PolarsViewResult,
     SortBy, SortableHeaderRenderer, get_decimal_and_layout, remove_null_columns,
-    replace_values_with_null,
+    replace_strings_with_null,
 };
 
 /// Internal struct holding calculated configuration for `TableBuilder`.
@@ -125,9 +125,8 @@ impl DataFrameContainer {
         let null_value_list: Vec<&str> = filters.parse_null_values();
         tracing::debug!("null_value_list: {null_value_list:?}");
 
-        // Replaces values with null across ALL columns if their trimmed string
-        // representation matches any entry in the null_value_list.
-        df = replace_values_with_null(df, &null_value_list)?;
+        // Replaces specific string values with null within columns of DataType::String.
+        df = replace_strings_with_null(df, &null_value_list)?;
         tracing::debug!("col 2: {col:?}", col = df.column(col_name)?);
 
         // --- 3. SQL Execution (if requested) ---
