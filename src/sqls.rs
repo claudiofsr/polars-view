@@ -315,10 +315,10 @@ fn new_table(schema: &Schema) -> Option<String> {
     }
 
     // 1.2 Try to find potential integer columns.
-    let col_int_vec = get_cols_by_type(schema, |dtype| dtype.is_integer());
-    let mut col_int_0: Option<&str> = None;
-    if let Some(ref vec) = col_int_vec {
-        col_int_0 = vec.first().copied(); // .copied() converts Option<&&str> to Option<&str>
+    let col_float_vec = get_cols_by_type(schema, |dtype| dtype.is_float());
+    let mut col_float_0: Option<&str> = None;
+    if let Some(ref vec) = col_float_vec {
+        col_float_0 = vec.first().copied(); // .copied() converts Option<&&str> to Option<&str>
     }
 
     // 2. Use `if let` to safely extract required columns by index or fallback to found string columns.
@@ -333,7 +333,7 @@ fn new_table(schema: &Schema) -> Option<String> {
         get_col_name(schema, 2),
         get_col_name_with_dtype(schema, 3, &DataType::String).or(col_str_0),
         get_col_name_with_dtype(schema, 9, &DataType::String).or(col_str_1),
-        get_col_name_with_dtype(schema, 10, &DataType::Int64).or(col_int_0),
+        get_col_name_with_dtype(schema, 10, &DataType::Float64).or(col_float_0),
     ) {
         // 3. If all required columns are present, build the SQL query string.
         Some(format!(
