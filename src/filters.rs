@@ -669,7 +669,6 @@ impl DataFilters {
             ui.separator();
 
             // 5. Render ACTIVE query editor
-            ui.label("Active Query (Editable):");
             ui.add(
                 TextEdit::multiline(&mut self.query)
                     .desired_width(f32::INFINITY)
