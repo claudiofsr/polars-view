@@ -314,7 +314,7 @@ fn new_table(schema: &Schema) -> Option<String> {
         col_str_1 = vec.get(1).copied();
     }
 
-    // 1.2 Try to find potential integer columns.
+    // 1.2 Try to find potential float columns.
     let col_float_vec = get_cols_by_type(schema, |dtype| dtype.is_float());
     let mut col_float_0: Option<&str> = None;
     if let Some(ref vec) = col_float_vec {
