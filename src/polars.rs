@@ -30,62 +30,87 @@ pub fn format_columns(dataframe: DataFrame, decimals: u32) -> Result<DataFrame, 
         .collect() // Collect the results back into an eager DataFrame.
 }
 
-/// Replaces string values with null if the value, after trimming whitespace,
-/// exactly matches one of the specified `null_value_list`.
+/// Replaces specific string values with null within columns of DataType::String.
 ///
-/// Existing null values in the column are preserved. Uses `dtype_col` for selection
-/// and `.name().keep()` to ensure original column names are preserved.
+/// This function identifies columns with `DataType::String` and checks if their values,
+/// after trimming whitespace, exactly match any string in the provided `null_value_list`.
+/// If a match is found, the original string value is replaced with `NULL`.
+///
+/// Non-string columns and existing null values in string columns are preserved untouched.
+/// It specifically uses `dtype_col(DataType::String)` to select only the relevant columns
+/// for this string-specific operation. The `.name().keep()` ensures original column names
+/// are preserved for the modified columns.
 ///
 /// To nullify empty strings or strings containing only whitespace, ensure `""` is included
-/// in the `null_value_list` list.
+/// in the `null_value_list`.
 ///
 /// ### Arguments
 ///
-/// * `dataframe`: The input DataFrame to be processed. Must contain columns of DataType::String.
+/// * `dataframe`: The input DataFrame to be processed.
 /// * `null_value_list`: A slice of string literals (e.g., `&["NA", "N/A", ""]`)
-///   that should trigger null replacement when matched against the trimmed column value.
+///   that should trigger null replacement when matched against a trimmed string column value.
 ///
 /// ### Returns
 ///
-/// A `Result` containing the new DataFrame with specified strings (based on trimmed matching)
-/// replaced by null, or a `PolarsError`.
+/// A `Result` containing the modified DataFrame with specified strings replaced by null
+/// in the String columns, or a `PolarsError`. Other columns remain unchanged.
 pub fn replace_strings_with_null(
-    // Renamed as per user code
+    // Renamed for slightly better clarity
     dataframe: DataFrame,
     null_value_list: &[&str],
 ) -> Result<DataFrame, PolarsError> {
+    // If the list is empty, there's nothing to replace, return the original DataFrame.
     if null_value_list.is_empty() {
         return Ok(dataframe);
     }
 
-    // Selector for all String columns (adapt DataType if needed)
-    let string_cols_selector = dtype_col(&DataType::String); // Target String type
+    // --- Prepare for Matching ---
 
     // Create a Polars Series containing the strings to be treated as null.
-    // It's important that this Series contains the *exact* values to match against the trimmed strings.
-    let null_values_series =
-        Series::new("null_vals".into(), null_value_list).cast(&DataType::String)?; // Cast to match target column type
+    // It's crucial this Series matches the type we .into()are comparing against (String).
+    let null_values_series = Series::new("null_vals".into(), null_value_list)
+        // Ensure the Series has the correct String type for the `is_in` comparison.
+        .cast(&DataType::String)?;
 
-    // --- Define Condition ---
+    // Selector specifically for columns of DataType::String.
+    // The replacement logic is only meaningful for string data.
+    let string_cols_selector = dtype_col(&DataType::String);
 
-    // Condition: Check if the TRIMMED string from the column matches any value in the null values list.
-    let condition = string_cols_selector
-        .clone() // Clone needed as selector is used again in `otherwise`
+    // --- Define Replacement Logic ---
+
+    // Condition: Check if the TRIMMED string value from a String column
+    // matches any value in the null values list.
+    // We explicitly select String columns here for the operations.
+    let condition = string_cols_selector // Operate only on string columns
+        .clone() // Clone needed as the selector is used again in `otherwise`
         .str()
-        .strip_chars(lit(NULL)) // Trim the value in the column FIRST
-        .is_in(lit(null_values_series)); // THEN check if the trimmed value is in the list
+        // Trim whitespace. `lit(NULL)` in `strip_chars` targets standard whitespace.
+        .strip_chars(lit(NULL))
+        // Check if the trimmed value exists in our list of null markers.
+        .is_in(lit(null_values_series));
 
-    // --- Apply Logic ---
+    // Define the full replacement expression using when/then/otherwise.
+    let replacement_expr = when(condition) // WHEN the trimmed string matches the list
+        // THEN replace with a NULL value. Casting to String ensures type consistency
+        // within the when/then/otherwise branches for String columns. Polars
+        // might infer this, but explicit casting is safer here.
+        .then(lit(NULL).cast(DataType::String))
+        // OTHERWISE (no match or not a string column implicitly), keep the original value.
+        // We select the string columns again for the 'otherwise' branch of the expression.
+        .otherwise(string_cols_selector)
+        // Ensure the output column retains the original name.
+        .name()
+        .keep();
+
+    // --- Apply Transformation ---
+
+    // Apply the replacement expression using `with_columns`.
+    // This expression will only affect the columns selected by `string_cols_selector`.
+    // All other columns (non-string types) in the DataFrame remain untouched implicitly.
     dataframe
         .lazy()
-        .with_columns([
-            when(condition) // WHEN the trimmed value matches the list
-                .then(lit(NULL).cast(DataType::String)) // THEN replace with NULL
-                .otherwise(string_cols_selector) // OTHERWISE keep the original value
-                .name()
-                .keep(), // Ensure original names are kept
-        ])
-        .collect()
+        .with_columns([replacement_expr]) // Apply the expression targeting String columns
+        .collect() // Execute the lazy plan and return the resulting DataFrame
 }
 
 /// Removes columns from the DataFrame that consist entirely of null values.
