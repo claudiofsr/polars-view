@@ -24,8 +24,6 @@ pub fn format_columns(dataframe: DataFrame, decimals: u32) -> Result<DataFrame, 
             // Apply the round expression directly to the selected float columns
             float_cols_selector.round(decimals), // No alias needed here usually, as applying an operation like round
                                                  // to selected columns often preserves their original names automatically.
-                                                 // If you encountered name clashes, you'd revert to iterating the schema
-                                                 // and aliasing explicitly like in the previous example.
         ])
         .collect() // Collect the results back into an eager DataFrame.
 }
