@@ -1,0 +1,6 @@
+/target
+*.csv
+*.parquet
+*.json
+*.ndjson
+test*.txt
