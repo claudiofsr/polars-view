@@ -3,4 +3,3 @@
 *.parquet
 *.json
 *.ndjson
-test*.txt
