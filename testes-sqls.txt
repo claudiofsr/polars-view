@@ -23,45 +23,18 @@ SQL Query 3:
 SELECT * 
 Except(
 "Crédito vinculado à Receita Bruta Total",
-"Crédito vinculado à Receita Bruta Não Cumulativa"
-)
-FROM AllData
-Where
-"Ano do Período de Apuração" = 2023
-And
-"Trimestre do Período de Apuração" = 1
-And
-"Mês do Período de Apuração" = '' -- 'janeiro'
-
-SQL Query 4:
-SELECT * 
-Except(
-"Crédito vinculado à Receita Bruta Total",
 "Crédito vinculado à Receita Bruta Não Cumulativa",
 "Mês do Período de Apuração"
 )
 FROM AllData
 Where
-"Ano do Período de Apuração" = 2023
+"Ano do Período de Apuração" = 2024
 And
-"Trimestre do Período de Apuração" = 1
+"Trimestre do Período de Apuração" = 4
 And
-"Mês do Período de Apuração" = 'janeiro'
+"Mês do Período de Apuração" Like '%dez%'
 
-SQL Query 5:
-SELECT 
-AllData.*, -- Select all original columns
-SubStr("Período Apuração Crédito",14,4) As Ano
-FROM 
-AllData;
-
-SQL Query 6:
-SELECT
-AllData.*, 
-SubStr("Período Apuração Crédito",14,4) As Ano
-From AllData
-
-SQL Query 7:
+SQL Query 4:
 SELECT
   AllData.*,
   SubStr("Período Apuração Crédito", 14, 4) AS Ano
@@ -70,30 +43,7 @@ FROM
 WHERE
   SubStr("Período Apuração Crédito", 14, 4) = '2019';
 
-SQL Query 8:
-SELECT *
-FROM (
-  SELECT
-    AllData.*,
-    SubStr("Período Apuração Crédito", 14, 4) AS Ano
-  FROM AllData
-) AS DadosComAno -- Alias para a subconsulta
-WHERE Ano = '2019';
-
-SQL Query 9:
-SELECT
-  AllData.*,
-  SubStr("Período Apuração Crédito", 14, 4) AS Ano
-FROM
-  AllData
-WHERE
-  SubStr("Período Apuração Crédito", 14, 4) = '2019' -- Filtra primeiro por ano '2019'
-ORDER BY
-  Ano ASC,                         -- 1. Ordena pelo Ano calculado (crescente - ASC é o padrão, pode omitir)
-  "Período Apuração Crédito" ASC,  -- 2. Desempata pelo período completo (crescente - ASC é o padrão)
-  "Tipo Crédito" DESC;             -- 3. Desempata pelo tipo de crédito (decrescente)
-
-SQL Query 10:
+SQL Query 5:
 WITH DadosComAno AS (
   SELECT
     AllData.*,
@@ -102,7 +52,7 @@ WITH DadosComAno AS (
 )
 SELECT *
 FROM DadosComAno
-WHERE Ano > 2019 -- Filtra usando o alias da CTE
+WHERE Ano >= 2019 -- Filtra usando o alias da CTE
 ORDER BY
   Ano ASC,                         -- 1. Ordena pelo Ano inteiro (crescente)
   "Período Apuração Crédito" ASC,  -- 2. Desempata pelo período completo (crescente)
