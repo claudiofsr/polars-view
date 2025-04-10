@@ -30,7 +30,7 @@ pub static DEFAULT_CSV_DELIMITER: &str = ";";
 pub const DEFAULT_INDEX_COLUMN_NAME: &str = "Row Number";
 
 /// Default regex
-const DEFAULT_REGEX: &str = "^Value.*$";
+const DEFAULT_REGEX: &str = "^Val.*$";
 
 /// Default starting offset for the row index column (e.g., 1 for 1-based).
 const DEFAULT_INDEX_COLUMN_OFFSET: u32 = 1;
