@@ -733,7 +733,7 @@ Example Patterns:
 5. To select only 'Last Info' (note the space):
    ^Last Info$
 
-(Applies only to columns Polars identifies as String type.)"#,
+(Applies only to columns that Polars identifies as String type.)"#,
             );
             ui.end_row();
         }
