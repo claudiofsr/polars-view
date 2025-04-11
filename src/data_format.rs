@@ -304,7 +304,7 @@ impl DataFormat {
         )
         .on_hover_text(format!(
             "Additional vertical padding for the enhanced table header.\n\
-            Maximum header padding: {:.*}",
+            Maximum header padding: {:.*} px",
             1, heigth_max
         ));
         ui.end_row();
