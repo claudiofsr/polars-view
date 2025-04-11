@@ -695,7 +695,7 @@ impl DataFilter {
         ui.label("Normalize Columns:");
         ui.checkbox(&mut self.normalize, "").on_hover_text(
             "Normalize Euro-style number strings in selected column names (via regex) to Float64.\n\
-            Example: '1.234,56' string to '1234.56' f64.",
+            Example: '1.234,56' (String) to '1234.56' (Float64).",
         );
         ui.end_row();
 
