@@ -251,7 +251,7 @@ impl DataFormat {
                 .speed(1) // Integer steps.
                 .range(0..=10), // Sensible range for display.
         )
-        .on_hover_text("Number of decimal places for floating-point numbers");
+        .on_hover_text("Number of decimal places for floating-point numbers.");
         ui.end_row();
     }
 
@@ -279,7 +279,7 @@ impl DataFormat {
         ui.checkbox(&mut self.use_enhanced_header, "")
             .on_hover_text(
                 "Enable: Styled, wrapping text with icon-only sort click.\n\
-                Disable: Simpler button header (whole button sorts).",
+                Disable: Simpler button header.",
             );
         ui.end_row();
     }
