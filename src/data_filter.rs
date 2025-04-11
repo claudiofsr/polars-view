@@ -706,14 +706,35 @@ impl DataFilter {
             // Use simple indentation in the label for visual structure
             ui.label("\tRegex:");
             let name_edit = TextEdit::singleline(&mut self.regex).desired_width(f32::INFINITY); // Use available width in the grid cell
-            ui.add(name_edit)
-                .on_hover_text(
-                "Enter a regex pattern to select columns by name.\n\
-                The pattern must match the *entire* column name starting with ^ and ending with $.\n\n\
-                Example1: To select columns like Value1, Value2, Value3, use:\n\
-                ^Value.*$\n\n\
-                Example2: To select columns like Value, Valor, Total, use:\n\
-                ^(Val|Total).*$");
+            ui.add(name_edit).on_hover_text(
+                r#"
+Enter a regex pattern to select String columns by name.
+
+Rules:
+- Use '*' for ALL String columns (caution!).
+- Use '^PATTERN$' for specific names (matches entire name).
+
+Example Columns:
+Row Number, Value1, Value2, ValueA, Valor, Total, SubTotal, Last Info
+
+Example Patterns:
+1. To select 'Value1', 'Value2':
+   ^Value\d$
+
+2. To select 'Value1', 'Value2', 'ValueA':
+   ^Value.*$
+
+3. To select 'Value1', 'Value2', 'ValueA', 'Valor':
+   ^Val.*$
+
+4. To select 'Value1', 'Value2', 'ValueA', 'Valor', 'Total', 'SubTotal':
+   ^(Val|Total|SubTotal).*$
+
+5. To select only 'Last Info' (note the space):
+   ^Last Info$
+
+(Applies only to columns Polars identifies as String type.)"#,
+            );
             ui.end_row();
         }
     }
