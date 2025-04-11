@@ -232,11 +232,11 @@ impl DataFormat {
 
         // 3. Render radio buttons. `radio_value` updates `current_align` (mutates map) on click.
         ui.radio_value(current_align, Align::LEFT, "Left")
-            .on_hover_text("Align column content to the left");
+            .on_hover_text("Align column content to the left.");
         ui.radio_value(current_align, Align::Center, "Center")
-            .on_hover_text("Align column content to the center");
+            .on_hover_text("Align column content to the center.");
         ui.radio_value(current_align, Align::RIGHT, "Right")
-            .on_hover_text("Align column content to the right");
+            .on_hover_text("Align column content to the right.");
 
         ui.end_row(); // End this row in the alignment grid.
     }
