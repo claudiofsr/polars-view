@@ -244,14 +244,19 @@ impl DataFormat {
     /// Renders the `DragValue` widget for setting the number of decimal places (`self.decimal`).
     /// Modifies `self.decimal` directly based on user input.
     fn render_decimal_input(&mut self, ui: &mut Ui) {
+        let decimal_max = 10;
         ui.label("Decimals:");
         // Bind DragValue to `self.decimal`.
         ui.add(
             DragValue::new(&mut self.decimal)
                 .speed(1) // Integer steps.
-                .range(0..=10), // Sensible range for display.
+                .range(0..=decimal_max), // Sensible range for display.
         )
-        .on_hover_text("Number of decimal places for floating-point numbers.");
+        .on_hover_text(format!(
+            "Number of decimal places for floating-point numbers.\n\
+            Maximum decimal places: {}",
+            decimal_max
+        ));
         ui.end_row();
     }
 
