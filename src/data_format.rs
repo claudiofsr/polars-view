@@ -264,10 +264,10 @@ impl DataFormat {
     fn render_auto_col(&mut self, ui: &mut Ui) {
         ui.label("Auto Col Width:");
         // Bind checkbox to `self.auto_col_width`.
-        ui.checkbox(&mut self.auto_col_width, "")
-            .on_hover_text(
-                "Enable: Size columns based on content (slower).\nDisable: Use uniform initial widths (faster), allows manual resize.",
-            );
+        ui.checkbox(&mut self.auto_col_width, "").on_hover_text(
+            "Enable: Size columns based on content (slower).\n\
+            Disable: Use uniform initial widths (faster), allows manual resize.",
+        );
         ui.end_row();
     }
 
@@ -278,7 +278,8 @@ impl DataFormat {
         // Bind checkbox to `self.use_enhanced_header`.
         ui.checkbox(&mut self.use_enhanced_header, "")
             .on_hover_text(
-                "Enable: Styled, wrapping text with icon-only sort click.\nDisable: Simpler button header (whole button sorts).",
+                "Enable: Styled, wrapping text with icon-only sort click.\n\
+                Disable: Simpler button header (whole button sorts).",
             );
         ui.end_row();
     }
