@@ -73,7 +73,7 @@ pub struct DataFormat {
 
     /// Number of decimal places for displaying floats (`Float32`, `Float64`).
     /// - Modified by the `DragValue` in `render_decimal_input`.
-    /// - Used by `get_decimal_and_layout` / `container.rs::format_cell_value`.
+    /// - Used by `get_decimal_and_layout` / `data_container.rs::format_cell_value`.
     ///   (Note: `decimal_and_layout_v2` might override for specific columns).
     pub decimal: usize,
 
@@ -287,15 +287,20 @@ impl DataFormat {
     /// Shown conditionally based on `self.use_enhanced_header`.
     /// Modifies `self.header_padding` directly. Affects header height calculation in `container.rs::build_table`.
     fn render_header_padding_input(&mut self, ui: &mut Ui) {
+        let heigth_max = 800.0;
         ui.label("Header Padding:");
         // Bind DragValue to `self.header_padding`.
         ui.add(
             DragValue::new(&mut self.header_padding)
                 .speed(0.5)
-                .range(0.0..=400.0) // Reasonable padding range.
+                .range(0.0..=heigth_max) // Reasonable padding range.
                 .suffix(" px"), // Display units.
         )
-        .on_hover_text("Additional vertical padding for the enhanced table header");
+        .on_hover_text(format!(
+            "Additional vertical padding for the enhanced table header.\n\
+            Maximum header padding: {:.*}",
+            1, heigth_max
+        ));
         ui.end_row();
     }
 }
