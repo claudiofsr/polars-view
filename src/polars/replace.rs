@@ -122,6 +122,7 @@ pub fn build_null_expression(
 #[cfg(test)]
 mod tests_replace_values_with_null {
     use super::*; // Import the function from the parent module
+    use polars::functions::concat_df_horizontal;
 
     // Helper to create a consistent test DataFrame using Option for nullability
     fn create_test_df() -> PolarsResult<DataFrame> {
@@ -386,6 +387,86 @@ mod tests_replace_values_with_null {
 
         assert_eq!(result_str_only, df);
         assert_eq!(result_all_cols, df);
+        Ok(())
+    }
+
+    /// cargo test -- --show-output test_remove_leading_and_trailing_chars
+    #[test]
+    fn test_remove_leading_and_trailing_chars() -> Result<(), PolarsError> {
+        /// Define values to be interpreted as null across all columns.
+        pub static NULL_VALUES_TEST: [&str; 3] = [
+            "",           // Represents empty strings --> null
+            "<N/D>",      // Specific placeholder string 1
+            "*DIVERSOS*", // Specific placeholder string 2
+        ];
+
+        let df_input = df! {
+            "foo" => &["", " ", "hello ", " <N/D> ", " *DIVERSOS* \n ", " world", " \n\r *DIVERSOS* \n ", "<N/D>"],
+        }?;
+
+        println!("df_input: {}", df_input);
+
+        // Create a Polars Series containing the *strings* to be treated as null markers.
+        let series = Series::new("null_vals".into(), NULL_VALUES_TEST);
+        let null_values_expr: Expr = series.implode()?.into_series().lit();
+
+        let condition = all() // Select current column value
+            .cast(DataType::String) // Cast to String
+            .str()
+            .strip_chars(lit(NULL)) // Trim whitespace from string representation
+            .is_in(null_values_expr.clone(), true); // Check if trimmed string is in the list
+        println!("condition: {}", condition);
+
+        let replacement_expr: Expr = build_null_expression(null_values_expr, true)?;
+        println!("replacement_expr: {}", replacement_expr);
+
+        let mut df_temp = df_input
+            .clone()
+            .lazy()
+            .with_columns([condition.alias("other name"), replacement_expr]) // Apply the selected expression
+            .collect()?;
+        df_temp.set_column_names(["foo_stripped", "is_in condition"])?;
+
+        // Concat DataFrames horizontally.
+        // let df_output = df_input.hstack(df_temp.get_columns())?;
+        let df_output = concat_df_horizontal(&[df_input, df_temp], true)?;
+
+        println!("df_output: {}", df_output);
+
+        let vec_from_series: Vec<&str> = df_output
+            .column("foo_stripped")?
+            .str()?
+            .iter() // Iterator over Option<&str>
+            .map(|opt_str| opt_str.unwrap_or("null"))
+            .collect();
+
+        println!("vec_from_series: {:?}", vec_from_series);
+
+        let vec_from_series: Vec<Option<&str>> = df_output
+            .column("foo_stripped")?
+            .str()?
+            .iter() // Iterator over Option<&str>
+            .collect();
+
+        println!("vec_from_series: {:?}", vec_from_series);
+
+        let df_expected = df! {
+            "foo" => &["", " ", "hello ", " <N/D> ", " *DIVERSOS* \n ", " world", " \n\r *DIVERSOS* \n ", "<N/D>"],
+            "foo_stripped" => &[None, None, Some("hello "), None, None, Some(" world"), None, None],
+            "is_in condition" => &[true, true, false, true, true, false, true, true],
+        }?;
+
+        assert_eq!(
+            df_output, df_expected,
+            "DataFrame mismatch after schema modify and null handling"
+        );
+
+        assert_eq!(
+            df_output.schema(),
+            df_expected.schema(),
+            "DataFrame mismatch schema"
+        );
+
         Ok(())
     }
 }
