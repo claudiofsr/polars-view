@@ -34,17 +34,6 @@ use polars::prelude::*;
 /// *   **Performance:** The universal mode (casting all values) can be slower than
 ///     the string-only mode on large datasets.
 ///
-/// ### Arguments
-///
-/// *   `dataframe`: The input DataFrame to be processed.
-/// *   `null_value_list`: A slice of string literals representing values to be nullified
-///     *after trimming* (e.g., `&["NA", "", "999", "true"]`).
-/// *   `apply_to_all_columns`: If `true`, applies the logic to all columns by casting
-///     to string first. If `false`, applies only to `DataType::String` columns.
-///
-/// ### Returns
-///
-/// A `Result` containing the modified DataFrame, or a `PolarsError`.
 pub fn replace_values_with_null(
     dataframe: DataFrame,
     null_value_list: &[&str],
@@ -64,17 +53,38 @@ pub fn replace_values_with_null(
     // 2. Implode the Series into a single List value (ChunkedArray<ListType> height 1).
     // 3. Convert the ChunkedArray back into a Series (Series<List<String>> height 1).
     // 4. Create a literal expression from this single-value List Series.
-    let literal_null_values_expr: Expr = series.implode()?.into_series().lit();
+    let null_values_expr: Expr = series.implode()?.into_series().lit();
 
+    // --- Define Replacement Expr ---
+
+    let replacement_expr: Expr = build_null_expression(null_values_expr, apply_to_all_columns)?;
+
+    // --- Apply Transformation ---
+
+    dataframe
+        .lazy()
+        .with_columns([replacement_expr]) // Apply the selected expression
+        .collect() // Execute the lazy plan
+}
+
+/// Builds a Polars Expression to replace specified string values (after trimming)
+/// with NULL within selected columns of a DataFrame.
+///
+/// Values are replaced if they match any string in the hardcoded list
+/// `null_value_list: Vec<&str>` after trimming leading/trailing whitespace.
+///
+pub fn build_null_expression(
+    null_values_expr: Expr,
+    apply_to_all_columns: bool,
+) -> PolarsResult<Expr> {
     // --- Define Replacement Logic based on the flag ---
-
     let replacement_expr: Expr = if apply_to_all_columns {
         // Universal Mode: Apply to ALL columns via casting and trimming string representation
         let condition = all() // Select current column value
             .cast(DataType::String) // Cast to String
             .str()
             .strip_chars(lit(NULL)) // Trim whitespace from string representation
-            .is_in(literal_null_values_expr, true); // Check if trimmed string is in the list
+            .is_in(null_values_expr, true); // Check if trimmed string is in the list
 
         when(condition) // WHEN the trimmed string representation matches...
             .then(lit(NULL)) // THEN replace original value with NULL
@@ -89,7 +99,7 @@ pub fn replace_values_with_null(
             .clone() // Clone needed for use in `otherwise`
             .str()
             .strip_chars(lit(NULL)) // Trim whitespace from the original string value
-            .is_in(literal_null_values_expr, true); // Check if trimmed string is in the list
+            .is_in(null_values_expr, true); // Check if trimmed string is in the list
 
         when(condition) // WHEN the trimmed string matches...
             // THEN replace with NULL (cast needed for type consistency within String col expr)
@@ -100,12 +110,7 @@ pub fn replace_values_with_null(
             .keep() // Keep original column name
     };
 
-    // --- Apply Transformation ---
-
-    dataframe
-        .lazy()
-        .with_columns([replacement_expr]) // Apply the selected expression
-        .collect() // Execute the lazy plan
+    Ok(replacement_expr)
 }
 
 //----------------------------------------------------------------------------//
