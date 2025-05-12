@@ -30,7 +30,7 @@ const COLS_FILTER_OUT: [&str; 14] = [
                             // Add other common aggregate/generated names here if needed
 ];
 
-// --- Helper Functions ---
+// --- Helper Functions for Column Finding ---
 
 /// Checks if a column name should be filtered out from examples, either because
 /// it's empty/whitespace or contains a known filtered substring.
@@ -49,19 +49,20 @@ fn is_filtered_col(name: &str) -> bool {
 }
 
 /// Finds the name of the Nth (0-based) column in the schema that matches a specified data type.
+/// Columns in `COLS_FILTER_OUT` are ignored.
 ///
 /// # Arguments
 /// * `schema`: The DataFrame schema.
 /// * `n`: The 0-based index (0 for first, 1 for second, etc.).
-/// * `target_dtype`: A closure `Fn(&DataType) -> bool`.
+/// * `target_dtype`: A closure `Fn(&DataType) -> bool` that defines the type check logic.
 ///
 /// # Returns
 /// * `Some(&'a str)`: The name of the Nth matching column, borrowing from the schema.
-/// * `None`: If fewer than N+1 columns satisfy the target_dtype.
+/// * `None`: If fewer than N+1 columns satisfy the target_dtype and are not filtered out.
 fn find_nth_col_name(
     schema: &Schema,
     n: usize,
-    target_dtype: impl Fn(&DataType) -> bool, // Closure defines the type check logic.
+    target_dtype: impl Fn(&DataType) -> bool,
 ) -> Option<&str> {
     schema
         .iter()
@@ -70,27 +71,10 @@ fn find_nth_col_name(
         .map(|(name, _dtype)| name.as_str())
 }
 
-/// Generates a list of example SQL commands based on the provided DataFrame schema.
-/// Uses helper functions to find suitable columns for demonstrating various SQL features.
-pub fn sql_commands(schema: &Schema) -> Vec<String> {
-    // Start with the default query
-    let mut commands: Vec<String> = vec![DEFAULT_QUERY.to_string()];
+// --- Functions to Generate Specific SQL Examples ---
 
-    // --- target_dtypes for finding usable columns ---
-    let is_any = |dtype: &DataType| !dtype.is_null(); // Find any non-null type column
-
-    // Find first few usable columns of different types for examples
-    let opt_str_col = find_nth_col_name(schema, 0, |dtype| dtype.is_string());
-    let opt_int_col = find_nth_col_name(schema, 0, |dtype| dtype.is_integer());
-    let opt_float_col = find_nth_col_name(schema, 0, |dtype| dtype.is_float());
-    let opt_date_col = find_nth_col_name(schema, 0, |dtype| dtype.is_date());
-    let opt_any_col = find_nth_col_name(schema, 0, is_any);
-    let opt_any_col_1 = find_nth_col_name(schema, 1, is_any);
-    let opt_any_col_2 = find_nth_col_name(schema, 2, is_any);
-
-    // === SELECT Clause Examples ===
-
-    // Example: LIMIT number of rows
+/// Generates an example SQL query demonstrating the LIMIT clause.
+fn generate_limit_example(commands: &mut Vec<String>) {
     commands.push(
         "\
 -- Limit the number of rows returned
@@ -100,9 +84,15 @@ LIMIT 50;
 "
         .to_string(),
     );
+}
 
-    // Example: Select specific columns
-    if let (Some(col1), Some(col2)) = (opt_str_col, opt_int_col.or(opt_float_col)) {
+/// Generates an example SQL query demonstrating selecting specific columns.
+fn generate_select_specific_columns(
+    commands: &mut Vec<String>,
+    opt_str_col: Option<&str>,
+    opt_num_col: Option<&str>, // Represents an Option<Int or Float column>
+) {
+    if let (Some(col1), Some(col2)) = (opt_str_col, opt_num_col) {
         commands.push(format!(
             "\
 -- Select specific columns by name
@@ -113,9 +103,15 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // Example: SELECT * with EXCEPT (Exclude)
-    if let (Some(col1), Some(col2)) = (opt_any_col, opt_any_col_2) {
+/// Generates an example SQL query demonstrating the EXCEPT clause.
+fn generate_except_example(
+    commands: &mut Vec<String>,
+    opt_col1: Option<&str>, // Needs the first non-filtered column
+    opt_col2: Option<&str>, // Needs the third non-filtered column (index 2)
+) {
+    if let (Some(col1), Some(col2)) = (opt_col1, opt_col2) {
         commands.push(format!(
             "\
 -- Select all columns EXCEPT specific ones
@@ -129,9 +125,15 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // Example: SELECT * with RENAME
-    if let (Some(col1), Some(col2)) = (opt_any_col, opt_any_col_1) {
+/// Generates an example SQL query demonstrating the RENAME clause.
+fn generate_rename_example(
+    commands: &mut Vec<String>,
+    opt_col1: Option<&str>, // Needs the first non-filtered column
+    opt_col2: Option<&str>, // Needs the second non-filtered column
+) {
+    if let (Some(col1), Some(col2)) = (opt_col1, opt_col2) {
         commands.push(format!(
             "\
 -- Rename columns while preserving order
@@ -144,8 +146,10 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // Example: SELECT * with REPLACE (Modify existing column's value)
+/// Generates an example SQL query demonstrating the REPLACE clause for a float column.
+fn generate_replace_float_example(commands: &mut Vec<String>, opt_float_col: Option<&str>) {
     if let Some(float_col) = opt_float_col {
         commands.push(format!(
             "\
@@ -161,53 +165,14 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // Example: Replacing a cell value
-    match (opt_int_col, opt_str_col) {
-        (Some(int_col), _) => {
-            commands.push(format!(
-                "\
--- Replaces cell values based on a condition
-SELECT *
-REPLACE (
-    CASE
-        -- Condition to identify the specific row
-        WHEN `{int_col}` >= 10
-        -- The new value for cells (some integer or string value)
-        THEN 'New String Value'
-        -- Keep the original values for all other rows in this column
-        ELSE `{int_col}`
-    -- Apply the result back to the original column name or another column
-    END AS `{int_col}`
-)
-FROM AllData;
-"
-            ));
-        }
-        (None, Some(str_col)) => {
-            commands.push(format!(
-                "\
--- Replaces cell values based on a condition
-SELECT *
-REPLACE (
-    CASE
-        -- Condition to identify the specific row
-        WHEN `{str_col}` ILIKE '%pattern%'
-        -- The new value for cells (some integer or string value)
-        THEN 'New String Value'
-        -- Keep the original values for all other rows in this column
-        ELSE `{str_col}`
-    -- Apply the result back to the original column name or another column
-    END AS `{str_col}`
-)
-FROM AllData;
-"
-            ));
-        }
-        (None, None) => (),
-    }
-
-    // Example: Add a NEW column using calculation
+/// Generates an example SQL query demonstrating adding a NEW calculated column.
+fn generate_add_new_column_example(
+    commands: &mut Vec<String>,
+    opt_float_col: Option<&str>,
+    opt_int_col: Option<&str>,
+) {
     if let (Some(col_f), Some(col_i)) = (opt_float_col, opt_int_col) {
         commands.push(format!(
             "\
@@ -221,8 +186,16 @@ FROM AllData;
 "
         ));
     }
+}
 
-    if let (Some(col1), Some(col2), Some(float_col)) = (opt_any_col, opt_any_col_1, opt_float_col) {
+/// Generates an example SQL query combining EXCEPT, REPLACE, and RENAME.
+fn generate_combined_transform_example(
+    commands: &mut Vec<String>,
+    opt_col1: Option<&str>, // First non-filtered column
+    opt_col2: Option<&str>, // Second non-filtered column
+    opt_float_col: Option<&str>,
+) {
+    if let (Some(col1), Some(col2), Some(float_col)) = (opt_col1, opt_col2, opt_float_col) {
         commands.push(format!(
             "\
 -- Except, Replace and Rename
@@ -241,8 +214,10 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // === Data Type Casting ===
+/// Generates an example SQL query demonstrating casting an integer column to float.
+fn generate_cast_int_to_float_example(commands: &mut Vec<String>, opt_int_col: Option<&str>) {
     if let Some(int_col) = opt_int_col {
         commands.push(format!(
             "\
@@ -253,9 +228,14 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // === Conditional Logic (CASE WHEN) ===
-    if let Some(num_col) = opt_int_col.or(opt_float_col) {
+/// Generates an example SQL query demonstrating conditional logic with CASE WHEN.
+fn generate_case_when_example(
+    commands: &mut Vec<String>,
+    opt_num_col: Option<&str>, // Represents an Option<Int or Float column>
+) {
+    if let Some(num_col) = opt_num_col {
         commands.push(format!(
             "\
 -- Create a new column based on conditions using CASE WHEN
@@ -269,10 +249,13 @@ FROM AllData;
 "
         ));
     }
+}
 
-    // === WHERE Clause Examples ===
-
-    // Example: Filter by IS NULL / IS NOT NULL
+/// Generates an example SQL query demonstrating filtering with IS NULL / IS NOT NULL.
+fn generate_where_isnull_example(
+    commands: &mut Vec<String>,
+    opt_any_col: Option<&str>, // Any non-filtered column
+) {
     if let Some(col) = opt_any_col {
         commands.push(format!(
             "\
@@ -285,8 +268,10 @@ WHERE
 "
         ));
     }
+}
 
-    // Example: Filter by integer equality
+/// Generates an example SQL query demonstrating filtering by integer equality.
+fn generate_where_int_equality_example(commands: &mut Vec<String>, opt_int_col: Option<&str>) {
     if let Some(int_col) = opt_int_col {
         commands.push(format!(
             "\
@@ -303,8 +288,10 @@ WHERE
 "
         ));
     }
+}
 
-    // Example: Filter by string equality and LIKE
+/// Generates an example SQL query demonstrating filtering by string content using = / LIKE / ILIKE.
+fn generate_where_string_filter_example(commands: &mut Vec<String>, opt_str_col: Option<&str>) {
     if let Some(str_col) = opt_str_col {
         commands.push(format!(
             "\
@@ -324,8 +311,14 @@ WHERE
 "
         ));
     }
+}
 
-    // Example: Filter using AND / OR
+/// Generates an example SQL query demonstrating combined filtering with AND / OR.
+fn generate_where_combined_example(
+    commands: &mut Vec<String>,
+    opt_int_col: Option<&str>,
+    opt_str_col: Option<&str>,
+) {
     if let (Some(int_col), Some(str_col)) = (opt_int_col, opt_str_col) {
         commands.push(format!(
             "\
@@ -342,11 +335,15 @@ AND
 "
         ));
     }
+}
 
-    // === ORDER BY and LIMIT Examples ===
-
-    // Example: ORDER BY multiple columns
-    if let (Some(col1), Some(col2)) = (opt_str_col, opt_int_col.or(opt_float_col)) {
+/// Generates an example SQL query demonstrating ordering results by multiple columns.
+fn generate_orderby_example(
+    commands: &mut Vec<String>,
+    opt_str_col: Option<&str>,
+    opt_num_col: Option<&str>, // Represents an Option<Int or Float column>
+) {
+    if let (Some(col1), Some(col2)) = (opt_str_col, opt_num_col) {
         commands.push(format!(
             "\
 -- Sort results by a single column (ASC default, or DESC) or            
@@ -359,15 +356,16 @@ ORDER BY
 "
         ));
     }
+}
 
-    // === GROUP BY Examples ===
-
-    // Example: Simple GROUP BY with COUNT
-    if let (Some(col1), Some(col2)) = (
-        opt_date_col.or(opt_int_col).or(opt_str_col).or(opt_any_col),
-        opt_any_col_2,
-    ) {
-        // Use first (date or int or any) as category
+/// Generates a basic GROUP BY example query demonstrating counting rows per category.
+fn generate_groupby_count_example(
+    commands: &mut Vec<String>,
+    opt_cat_col: Option<&str>, // Represents an Option<Date or Int or Str or Any non-filtered column>
+    opt_col2: Option<&str>,    // Represents the third non-filtered column (index 2)
+) {
+    // Needs a column suitable for grouping (like Date, Int, String, or just Any)
+    if let (Some(col1), Some(col2)) = (opt_cat_col, opt_col2) {
         commands.push(format!(
             "\
 -- Count rows per category (Frequency)
@@ -384,9 +382,15 @@ ORDER BY
 "
         ));
     }
+}
 
-    // Example: GROUP BY with SUM
-    if let (Some(cat_col), Some(num_col)) = (opt_str_col, opt_int_col.or(opt_float_col)) {
+/// Generates a GROUP BY example query demonstrating summing a numeric column per category.
+fn generate_groupby_sum_example(
+    commands: &mut Vec<String>,
+    opt_str_col: Option<&str>, // Column for category
+    opt_num_col: Option<&str>, // Column for summing
+) {
+    if let (Some(cat_col), Some(num_col)) = (opt_str_col, opt_num_col) {
         commands.push(format!(
             "\
 -- Calculate SUM of a numeric column per category
@@ -401,9 +405,15 @@ ORDER BY
 "
         ));
     }
+}
 
-    // Example: GROUP BY with multiple aggregates (COUNT, SUM, AVG, MIN, MAX)
-    if let (Some(cat_col), Some(val_col)) = (opt_str_col, opt_int_col.or(opt_float_col)) {
+/// Generates a GROUP BY example query demonstrating multiple aggregate functions.
+fn generate_groupby_multiple_aggregates_example(
+    commands: &mut Vec<String>,
+    opt_str_col: Option<&str>, // Column for category
+    opt_val_col: Option<&str>, // Column for aggregation
+) {
+    if let (Some(cat_col), Some(val_col)) = (opt_str_col, opt_val_col) {
         commands.push(format!(
             "\
 -- Calculate multiple aggregate functions per category
@@ -425,9 +435,15 @@ ORDER BY
 "
         ));
     }
+}
 
-    // Example: HAVING clause (Filter *after* aggregation)
-    if let (Some(cat_col), Some(val_col)) = (opt_str_col, opt_int_col.or(opt_float_col)) {
+/// Generates a GROUP BY example query demonstrating filtering groups with HAVING.
+fn generate_having_example(
+    commands: &mut Vec<String>,
+    opt_str_col: Option<&str>, // Column for category
+    opt_val_col: Option<&str>, // Column for aggregation (must be numeric for AVG)
+) {
+    if let (Some(cat_col), Some(val_col)) = (opt_str_col, opt_val_col) {
         commands.push(format!(
             "\
 -- Use HAVING to filter groups based on aggregate results
@@ -445,10 +461,10 @@ ORDER BY
 "
         ));
     }
+}
 
-    // === Date/Time Functions ===
-
-    // Example: Format date column
+/// Generates an example SQL query demonstrating formatting a date column using STRFTIME.
+fn generate_strftime_example(commands: &mut Vec<String>, opt_date_col: Option<&str>) {
     if let Some(date_col) = opt_date_col {
         commands.push(format!(
             "\
@@ -461,21 +477,152 @@ ORDER BY
 "
         ));
     }
+}
 
-    // --- Final command (often useful) ---
-    if let (Some(col1), Some(col2)) = (opt_any_col, opt_any_col_2) {
+/// Generates an example SQL query demonstrating the DISTINCT clause.
+fn generate_distinct_example(
+    commands: &mut Vec<String>,
+    opt_col1: Option<&str>, // First non-filtered column
+    opt_col2: Option<&str>, // Third non-filtered column (index 2)
+) {
+    // Note: Original code used opt_any_col and opt_any_col_2 for Distinct.
+    // This matches the parameters needed here.
+    if let (Some(col1), Some(col2)) = (opt_col1, opt_col2) {
         commands.push(format!(
             "\
--- Show distinct values of a column
+-- Show distinct values of columns
 SELECT DISTINCT 
     `{col1}`,
-    `{col2}`,
+    `{col2}`
 FROM AllData
 ORDER BY 
     `{col2}`;
 "
         ));
     }
+}
+
+/// Generates an example SQL query demonstrating replacing a cell value using CASE WHEN in REPLACE.
+/// (Existing function kept for completeness, matches the pattern)
+fn replace_cell_value(
+    commands: &mut Vec<String>,
+    opt_int_col: Option<&str>,
+    opt_str_col: Option<&str>,
+) {
+    match (opt_int_col, opt_str_col) {
+        (Some(int_col), _) => {
+            commands.push(format!(
+                "\
+-- Replaces cell values based on a condition using CASE WHEN in REPLACE
+SELECT *
+REPLACE (
+    CASE
+        -- Condition to identify the specific row (example uses an integer column)
+        WHEN `{int_col}` >= 10
+        -- The new value for cells (some integer or string value)
+        THEN 'New String Value'
+        -- Keep the original values for all other rows in this column
+        ELSE `{int_col}`
+    -- Apply the result back to the original column name or another column
+    END AS `{int_col}`
+)
+FROM AllData;
+"
+            ));
+        }
+        (None, Some(str_col)) => {
+            commands.push(format!(
+                "\
+-- Replaces cell values based on a condition using CASE WHEN in REPLACE
+SELECT *
+REPLACE (
+    CASE
+        -- Condition to identify the specific row (example uses a string column with ILIKE)
+        WHEN `{str_col}` ILIKE '%pattern%'
+        -- The new value for cells (some integer or string value)
+        THEN 'New String Value'
+        -- Keep the original values for all other rows in this column
+        ELSE `{str_col}`
+    -- Apply the result back to the original column name or another column
+    END AS `{str_col}`
+)
+FROM AllData;
+"
+            ));
+        }
+        (None, None) => (), // No suitable column found
+    }
+}
+
+// --- Main SQL Command Generator ---
+
+/// Generates a list of example SQL commands based on the provided DataFrame schema.
+/// Uses helper functions to find suitable columns and generate diverse examples.
+pub fn sql_commands(schema: &Schema) -> Vec<String> {
+    // Start with the default query
+    let mut commands: Vec<String> = vec![DEFAULT_QUERY.to_string()];
+
+    // --- target_dtypes for finding usable columns ---
+    let is_any = |dtype: &DataType| !dtype.is_null(); // Find any non-null type column
+
+    // Find first few usable columns of different types for examples
+    // The index used for finding these columns corresponds to their potential
+    // use case in the examples.
+    let opt_str_col = find_nth_col_name(schema, 0, |dtype| dtype.is_string());
+    let opt_int_col = find_nth_col_name(schema, 0, |dtype| dtype.is_integer());
+    let opt_float_col = find_nth_col_name(schema, 0, |dtype| dtype.is_float());
+    let opt_date_col = find_nth_col_name(schema, 0, |dtype| dtype.is_date());
+
+    // Find the Nth available column of *any* type, filtering out specified names.
+    // These are used for examples that don't require a specific type,
+    // or need distinct columns for comparison/exclusion/etc.
+    let opt_any_col = find_nth_col_name(schema, 0, is_any); // First usable column
+    let opt_any_col_1 = find_nth_col_name(schema, 1, is_any); // Second usable column
+    let opt_any_col_2 = find_nth_col_name(schema, 2, is_any); // Third usable column
+
+    // Helper options combining types
+    let opt_int_or_float_col = opt_int_col.or(opt_float_col);
+    let opt_date_int_str_or_any_col = opt_date_col.or(opt_int_col).or(opt_str_col).or(opt_any_col);
+
+    // === Example Generation Calls (grouped by type/clause) ===
+
+    // SELECT Clause Examples
+    generate_limit_example(&mut commands);
+    generate_select_specific_columns(&mut commands, opt_str_col, opt_int_or_float_col);
+    generate_except_example(&mut commands, opt_any_col, opt_any_col_2); // Needs 1st and 3rd usable cols
+    generate_rename_example(&mut commands, opt_any_col, opt_any_col_1); // Needs 1st and 2nd usable cols
+    generate_replace_float_example(&mut commands, opt_float_col);
+    replace_cell_value(&mut commands, opt_int_col, opt_str_col); // Calls the pre-existing one
+    generate_add_new_column_example(&mut commands, opt_float_col, opt_int_col);
+    generate_combined_transform_example(&mut commands, opt_any_col, opt_any_col_1, opt_float_col); // Needs 1st, 2nd usable cols & float
+
+    // Data Type Casting Examples
+    generate_cast_int_to_float_example(&mut commands, opt_int_col);
+
+    // Conditional Logic Examples
+    generate_case_when_example(&mut commands, opt_int_or_float_col);
+
+    // WHERE Clause Examples
+    generate_where_isnull_example(&mut commands, opt_any_col);
+    generate_where_int_equality_example(&mut commands, opt_int_col);
+    generate_where_string_filter_example(&mut commands, opt_str_col);
+    generate_where_combined_example(&mut commands, opt_int_col, opt_str_col);
+
+    // ORDER BY Examples
+    generate_orderby_example(&mut commands, opt_str_col, opt_int_or_float_col);
+
+    // GROUP BY Examples
+    // Needs a column suitable for grouping and one for aggregation
+    generate_groupby_count_example(&mut commands, opt_date_int_str_or_any_col, opt_any_col_2); // Needs usable grouping col and 3rd usable col
+    generate_groupby_sum_example(&mut commands, opt_str_col, opt_int_or_float_col); // Needs str for grouping, int/float for summing
+    generate_groupby_multiple_aggregates_example(&mut commands, opt_str_col, opt_int_or_float_col); // Needs str for grouping, int/float for aggregates
+    generate_having_example(&mut commands, opt_str_col, opt_int_or_float_col); // Needs str for grouping, int/float for average
+
+    // Date/Time Functions Examples
+    generate_strftime_example(&mut commands, opt_date_col);
+
+    // Miscellaneous Examples
+    generate_distinct_example(&mut commands, opt_any_col, opt_any_col_2); // Needs 1st and 3rd usable cols
 
     commands
 }
