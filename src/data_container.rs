@@ -253,8 +253,16 @@ impl DataContainer {
             tracing::debug!(
                 "apply_sort: Sort criteria list is empty. Resetting df to df_original."
             );
-            self.df = self.df_original.clone();
-            self.sort = Vec::new(); // Store the empty Vec as the current state
+
+            // Get filter and format
+            let format = self.format.as_ref().clone();
+            let mut filter = self.filter.as_ref().clone();
+            filter.apply_sql = true;
+
+            // Apply transformations
+            // self.sort = Vec::new(); // Store the empty Vec as the current state
+            self = self.load_data(filter, format).await?;
+
             return Ok(self);
         }
 

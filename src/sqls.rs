@@ -163,9 +163,10 @@ FROM AllData;
     }
 
     // Example: Replacing a cell value
-    if let Some(int_col) = opt_int_col {
-        commands.push(format!(
-            "\
+    match (opt_int_col, opt_str_col) {
+        (Some(int_col), _) => {
+            commands.push(format!(
+                "\
 -- Replaces cell values based on a condition
 SELECT *
 REPLACE (
@@ -181,7 +182,29 @@ REPLACE (
 )
 FROM AllData;
 "
-        ));
+            ));
+        }
+        (None, Some(str_col)) => {
+            commands.push(format!(
+                "\
+-- Replaces cell values based on a condition
+SELECT *
+REPLACE (
+    CASE
+        -- Condition to identify the specific row
+        WHEN `{str_col}` ILIKE '%pattern%'
+        -- The new value for cells (some integer or string value)
+        THEN 'New String Value'
+        -- Keep the original values for all other rows in this column
+        ELSE `{str_col}`
+    -- Apply the result back to the original column name or another column
+    END AS `{str_col}`
+)
+FROM AllData;
+"
+            ));
+        }
+        (None, None) => (),
     }
 
     // Example: Add a NEW column using calculation
