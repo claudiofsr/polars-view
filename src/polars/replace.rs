@@ -46,7 +46,7 @@ pub fn replace_values_with_null(
 
     // --- Prepare for Matching ---
 
-    let list_series: Series = Series::build_from_list(null_value_list)?;
+    let list_series: Series = Series::build_from_list(null_value_list);
 
     // --- Define Replacement Expr ---
 
@@ -68,11 +68,11 @@ pub trait SeriesExtension {
     /// * `input_slice`: Strings for the list content.
     /// ### Returns
     /// A new List<String> Series, shape (1,).
-    fn build_from_list(input_slice: &[&str]) -> PolarsResult<Series>;
+    fn build_from_list(input_slice: &[&str]) -> Series;
 }
 
 impl SeriesExtension for Series {
-    fn build_from_list(input_slice: &[&str]) -> PolarsResult<Series> {
+    fn build_from_list(input_slice: &[&str]) -> Series {
         // Step 1: Create inner Series from slice
         // (Dtype: String, Shape: (N,)).
         let inner_series = Series::new("inner_content".into(), input_slice);
@@ -86,20 +86,8 @@ impl SeriesExtension for Series {
             vec![inner_series],   // Vector with one Series => List Series with one row
         );
 
-        // 3. Verify the shape guarantee.
-        // Ensure the resulting List Series has exactly one row as intended.
-        if list_series.len() != 1 {
-            Err(PolarsError::ComputeError(
-                "Internal logic error: build_from_list failed to create a List Series with exactly one row.".into(),
-            ))
-        } else {
-            Ok(list_series)
-        }
+        list_series
     }
-
-    // Note: The internal check `if list_series.len() != 1` should theoretically
-    // never fail based on the current `Series::new("name", vec![inner_series])` logic
-    // when the vector has exactly one item.
 }
 
 /// Builds a Polars Expression to replace specified string values (after trimming)
@@ -529,7 +517,7 @@ mod tests_replace_values_with_null {
             "Resulting series should be List<String>"
         );
 
-        let result_series: Series = Series::build_from_list(null_value_list)?;
+        let result_series: Series = Series::build_from_list(null_value_list);
 
         assert_eq!(result_series.len(), 1); // List series itself has 1 row
         assert_eq!(result_series.name(), "list_string");
