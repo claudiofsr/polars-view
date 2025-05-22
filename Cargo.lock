@@ -3913,7 +3913,7 @@ dependencies = [
 
 [[package]]
 name = "polars-view"
-version = "0.46.5"
+version = "0.47.0"
 dependencies = [
  "anstyle",
  "cfg-if",
