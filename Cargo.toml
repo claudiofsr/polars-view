@@ -42,7 +42,7 @@ features = [
 ]
 
 [dependencies.polars]
-version = "0.47.1"
+version = "0.48.1"
 features = [
     "lazy",          # Lazy API
     "csv",           # Read CSV format
