@@ -50,7 +50,7 @@ pub fn replace_values_with_null(
 
     // --- Define Replacement Expr ---
 
-    let replacement_expr: Expr = build_null_expression(list_series.lit(), apply_to_all_columns)?;
+    let replacement_expr: Expr = build_null_expression(list_series.lit(), apply_to_all_columns);
 
     // --- Apply Transformation ---
 
@@ -77,7 +77,7 @@ impl SeriesExtension for Series {
         // (Dtype: String, Shape: (N,)).
         let inner_series = Series::new("inner_content".into(), input_slice);
 
-        // 2. Wrap the inner Series in a vector to create a single-row List Series.
+        // Step 2: Wrap the inner Series in a vector to create a single-row List Series.
         // Polars builds a List Series where each Series in the vector becomes one row's list.
         // By providing a vector with one inner Series, we get a List Series with one row.
         // (Dtype: List<String>, Shape: (1,)).
@@ -96,10 +96,7 @@ impl SeriesExtension for Series {
 /// Values are replaced if they match any string in the hardcoded list
 /// `null_value_list: Vec<&str>` after trimming leading/trailing whitespace.
 ///
-pub fn build_null_expression(
-    null_values_expr: Expr,
-    apply_to_all_columns: bool,
-) -> PolarsResult<Expr> {
+pub fn build_null_expression(null_values_expr: Expr, apply_to_all_columns: bool) -> Expr {
     // --- Define Replacement Logic based on the flag ---
     let replacement_expr: Expr = if apply_to_all_columns {
         // Universal Mode: Apply to ALL columns via casting and trimming string representation
@@ -133,7 +130,7 @@ pub fn build_null_expression(
             .keep() // Keep original column name
     };
 
-    Ok(replacement_expr)
+    replacement_expr
 }
 
 //----------------------------------------------------------------------------//
@@ -440,7 +437,7 @@ mod tests_replace_values_with_null {
             .is_in(null_values_expr.clone(), true); // Check if trimmed string is in the list
         println!("condition: {}", condition);
 
-        let replacement_expr: Expr = build_null_expression(null_values_expr, true)?;
+        let replacement_expr: Expr = build_null_expression(null_values_expr, true);
         println!("replacement_expr: {}", replacement_expr);
 
         let mut df_temp = df_input
