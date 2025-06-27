@@ -61,7 +61,7 @@ fn main() -> eframe::Result<()> {
                 Ok(app) => Ok(Box::new(app)),
                 Err(err) => {
                     error!("Failed to initialize PolarsViewApp: {}", err); //Log
-                    panic!("Failed to initialize PolarsViewApp: {}", err); //Panic
+                    panic!("Failed to initialize PolarsViewApp: {err}"); //Panic
                 }
             }
         }),

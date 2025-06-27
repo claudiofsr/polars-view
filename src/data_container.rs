@@ -516,8 +516,8 @@ impl DataContainer {
                 // Format based on the AnyValue variant and decimal setting.
                 match (any_value, opt_decimal) {
                     // Float with specific decimal request: Apply precision formatting.
-                    (AnyValue::Float32(value), Some(decimal)) => format!("{:.*}", decimal, value),
-                    (AnyValue::Float64(value), Some(decimal)) => format!("{:.*}", decimal, value),
+                    (AnyValue::Float32(value), Some(decimal)) => format!("{value:.decimal$}"),
+                    (AnyValue::Float64(value), Some(decimal)) => format!("{value:.decimal$}"),
 
                     // Null value: Display as empty string.
                     (AnyValue::Null, _) => String::new(),

@@ -62,8 +62,8 @@ impl FileInfo {
             // Create a collapsing header for each column.  The header displays the column name.
             let header_response = ui.collapsing(name.to_string(), |ui| {
                 // Inside the collapsing section, display the column index and data type.
-                ui.label(format!("index: {}", index));
-                ui.label(format!("type: {}", dtype));
+                ui.label(format!("index: {index}"));
+                ui.label(format!("type: {dtype}"));
             });
 
             // Check if the header was clicked (specifically with the right mouse button).

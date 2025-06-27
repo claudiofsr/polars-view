@@ -91,7 +91,7 @@ pub fn normalize_float_strings_by_regex(
                 columns_to_transform.push(col_name.clone());
             } else {
                 // Incorrect type for transformation, record for error reporting
-                error_columns_mismatched_type.push(format!("'{}' (Type: {})", col_name, dtype));
+                error_columns_mismatched_type.push(format!("'{col_name}' (Type: {dtype})"));
             }
         }
         // If name doesn't match pattern, ignore the column

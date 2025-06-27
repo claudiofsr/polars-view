@@ -250,8 +250,7 @@ impl DataFormat {
         )
         .on_hover_text(format!(
             "Number of decimal places for floating-point numbers.\n\
-            Maximum decimal places: {}",
-            decimal_max
+            Maximum decimal places: {decimal_max}"
         ));
         ui.end_row();
     }

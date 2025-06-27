@@ -201,7 +201,7 @@ fn validate_cli_regex(pattern: &str, arg_name: &str) -> PolarsViewResult<String>
         match Regex::new(pattern) {
             Ok(_) => Ok(pattern.to_string()),
             Err(e) => {
-                let reason = format!("Invalid regex syntax: {}", e);
+                let reason = format!("Invalid regex syntax: {e}");
                 Err(PolarsViewError::InvalidArgument {
                     arg_name: arg_name.to_string(),
                     reason,

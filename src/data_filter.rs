@@ -1202,7 +1202,7 @@ fn resolve_unique_column_name(base_name: &str, schema: &Schema) -> PolarsResult<
     );
     let mut suffix_counter = 1u32;
     loop {
-        let candidate_name = format!("{}_{}", base_name, suffix_counter);
+        let candidate_name = format!("{base_name}_{suffix_counter}");
 
         if schema.get(&candidate_name).is_none() {
             // Found a unique name
@@ -1216,8 +1216,7 @@ fn resolve_unique_column_name(base_name: &str, schema: &Schema) -> PolarsResult<
         // Prevent infinite loops. Return error if a unique name cannot be found after max attempts.
         if suffix_counter >= MAX_ATTEMPTS {
             let msg = format!(
-                "Failed to find a unique column name starting with '{}' after {} attempts.",
-                base_name, MAX_ATTEMPTS
+                "Failed to find a unique column name starting with '{base_name}' after {MAX_ATTEMPTS} attempts."
             );
             tracing::error!("{}", msg);
             return Err(PolarsError::ComputeError(msg.into()));
