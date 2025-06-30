@@ -1308,7 +1308,7 @@ long_id;value;text
 98765432109876543210987654321098765432109876;20.0;def
 12345;30.7;ghi";
         // No need for df_input - the csv_content is the direct input representation
-        println!("Input CSV Content:\n{}\n", csv_content);
+        println!("Input CSV Content:\n{csv_content}\n");
 
         // 2. Define Expected Output DataFrame (long_id is String)
         let df_expected = df!(
@@ -1321,7 +1321,7 @@ long_id;value;text
             "text" => &["abc", "def", "ghi"]
         )
         .expect("Failed to create expected DataFrame");
-        println!("Expected DF (After Read):\n{}", df_expected);
+        println!("Expected DF (After Read):\n{df_expected}");
 
         // 3. Setup: Use helper to create CSV and Filter WITH the override
         let delimiter = ';';
@@ -1343,7 +1343,7 @@ long_id;value;text
         let df_output =
             execute_polars_blocking(move || lazyframe.with_new_streaming(true).collect()).await?;
 
-        println!("Output DF (Actual Read):\n{}", df_output);
+        println!("Output DF (Actual Read):\n{df_output}");
 
         // 5. Assertions
         assert_eq!(
@@ -1378,7 +1378,7 @@ long_id;value;text
 long_id;value;text
 12345678901234567890123456789012345678901234;10.5;abc
 98765432109876543210987654321098765432109876;20.0;def";
-        println!("Input CSV Content:\n{}\n", csv_content);
+        println!("Input CSV Content:\n{csv_content}\n");
 
         // 2. Define Expected Output Pattern (long_id should be all nulls)
         let df_expected_pattern = df!(
@@ -1387,10 +1387,7 @@ long_id;value;text
             "text" => &["abc", "def"]
         )
         .expect("Failed to create expected pattern DataFrame");
-        println!(
-            "Expected DF Pattern (After Read, note long_id nulls):\n{}",
-            df_expected_pattern
-        );
+        println!("Expected DF Pattern (After Read, note long_id nulls):\n{df_expected_pattern}");
 
         // 3. Setup: Use helper with an EMPTY override list
         let delimiter = ';';
@@ -1413,7 +1410,7 @@ long_id;value;text
             .map_err(PolarsViewError::from)? // Convert Tokio JoinError to PolarsViewError
             .map_err(PolarsViewError::from)?; // Convert PolarsError to PolarsViewError
 
-        println!("Output DF (Actual Read):\n{}", df_output);
+        println!("Output DF (Actual Read):\n{df_output}");
 
         // 5. Assertions
         let long_id_col = df_output.column("long_id")?;

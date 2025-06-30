@@ -212,11 +212,11 @@ mod tests_replace_values_with_null {
              "col_bool" =>   &[Some(true), None, None, Some(true), None, Some(true), Some(true), None, Some(true)],
         ]?;
 
-        println!("Input:\n{}", df_input);
-        println!("Null Markers: {:?}", null_markers);
+        println!("Input:\n{df_input}");
+        println!("Null Markers: {null_markers:?}");
         let df_output = replace_values_with_null(df_input, null_markers, true)?;
-        println!("Output:\n{}", df_output);
-        println!("Expected:\n{}", df_expected);
+        println!("Output:\n{df_output}");
+        println!("Expected:\n{df_expected}");
 
         // Compare schema and values
         assert_eq!(
@@ -251,11 +251,11 @@ mod tests_replace_values_with_null {
         "col4" => &[None, Some("ignore"), None, Some("None"), None, None, Some("KEEP"), Some("other"), Some("false")]
         ]?;
 
-        println!("Input:\n{}", df_input);
-        println!("Null List: {:?}", null_list);
+        println!("Input:\n{df_input}");
+        println!("Null List: {null_list:?}");
         let df_output = replace_values_with_null(df_input, null_list, false)?; // string-only
-        println!("Output:\n{}", df_output);
-        println!("Expected:\n{}", df_expected);
+        println!("Output:\n{df_output}");
+        println!("Expected:\n{df_expected}");
 
         // Compare schema and values
         assert_eq!(
@@ -291,9 +291,7 @@ mod tests_replace_values_with_null {
         )?;
         assert!(
             df_output_with_empty.equals_missing(&df_expected_with_empty),
-            "Whitespace not nullified when '' IS targeted.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output_with_empty,
-            df_expected_with_empty
+            "Whitespace not nullified when '' IS targeted.\nOutput:\n{df_output_with_empty:?}\nExpected:\n{df_expected_with_empty:?}"
         );
 
         // Case 2: Do NOT target empty string "" -> whitespace should NOT be nullified
@@ -309,9 +307,7 @@ mod tests_replace_values_with_null {
         )?;
         assert!(
             df_output_without_empty.equals_missing(&df_expected_without_empty),
-            "Whitespace incorrectly nullified when '' NOT targeted.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output_without_empty,
-            df_expected_without_empty
+            "Whitespace incorrectly nullified when '' NOT targeted.\nOutput:\n{df_output_without_empty:?}\nExpected:\n{df_expected_without_empty:?}"
         );
 
         Ok(())
@@ -331,11 +327,11 @@ mod tests_replace_values_with_null {
             "col_str_ws" => &[Some(" leading"), Some("trailing "), Some(" both "), None, None, None, None, Some("ok"), None, None]
         )?;
 
-        println!("Input:\n{}", df_input);
-        println!("Null Markers: {:?}", NULL_MARKERS);
+        println!("Input:\n{df_input}");
+        println!("Null Markers: {NULL_MARKERS:?}");
         let df_output = replace_values_with_null(df_input, NULL_MARKERS, false)?;
-        println!("Output:\n{}", df_output);
-        println!("Expected:\n{}", df_expected);
+        println!("Output:\n{df_output}");
+        println!("Expected:\n{df_expected}");
 
         assert_eq!(df_output, df_expected);
         Ok(())
@@ -354,11 +350,11 @@ mod tests_replace_values_with_null {
             "col_str_ws" => &[Some(" leading"), Some("trailing "), Some(" both "), None, None, None, None, Some("ok"), None, None]
         )?;
 
-        println!("Input:\n{}", df_input);
-        println!("Null Markers: {:?}", NULL_MARKERS);
+        println!("Input:\n{df_input}");
+        println!("Null Markers: {NULL_MARKERS:?}");
         let df_output = replace_values_with_null(df_input, NULL_MARKERS, true)?;
-        println!("Output:\n{}", df_output);
-        println!("Expected:\n{}", df_expected);
+        println!("Output:\n{df_output}");
+        println!("Expected:\n{df_expected}");
 
         assert_eq!(df_output, df_expected);
         Ok(())
@@ -424,7 +420,7 @@ mod tests_replace_values_with_null {
             "foo" => &["", " ", "hello ", " <N/D> ", " *DIVERSOS* \n ", " world", " \n\r *DIVERSOS* \n ", "<N/D>"],
         }?;
 
-        println!("df_input: {}", df_input);
+        println!("df_input: {df_input}");
 
         // Create a Polars Series containing the *strings* to be treated as null markers.
         let series = Series::new("null_vals".into(), NULL_VALUES_TEST);
@@ -435,10 +431,10 @@ mod tests_replace_values_with_null {
             .str()
             .strip_chars(lit(NULL)) // Trim whitespace from string representation
             .is_in(null_values_expr.clone(), true); // Check if trimmed string is in the list
-        println!("condition: {}", condition);
+        println!("condition: {condition}");
 
         let replacement_expr: Expr = build_null_expression(null_values_expr, true);
-        println!("replacement_expr: {}", replacement_expr);
+        println!("replacement_expr: {replacement_expr}");
 
         let mut df_temp = df_input
             .clone()
@@ -451,7 +447,7 @@ mod tests_replace_values_with_null {
         // let df_output = df_input.hstack(df_temp.get_columns())?;
         let df_output = concat_df_horizontal(&[df_input, df_temp], true)?;
 
-        println!("df_output: {}", df_output);
+        println!("df_output: {df_output}");
 
         let vec_from_series: Vec<&str> = df_output
             .column("foo_stripped")?
@@ -460,7 +456,7 @@ mod tests_replace_values_with_null {
             .map(|opt_str| opt_str.unwrap_or("null"))
             .collect();
 
-        println!("vec_from_series: {:?}", vec_from_series);
+        println!("vec_from_series: {vec_from_series:?}");
 
         let vec_from_series: Vec<Option<&str>> = df_output
             .column("foo_stripped")?
@@ -468,7 +464,7 @@ mod tests_replace_values_with_null {
             .iter() // Iterator over Option<&str>
             .collect();
 
-        println!("vec_from_series: {:?}", vec_from_series);
+        println!("vec_from_series: {vec_from_series:?}");
 
         let df_expected = df! {
             "foo" => &["", " ", "hello ", " <N/D> ", " *DIVERSOS* \n ", " world", " \n\r *DIVERSOS* \n ", "<N/D>"],

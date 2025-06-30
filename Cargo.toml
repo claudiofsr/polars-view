@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.48.2"
+version = "0.48.3"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -9,7 +9,7 @@ license = "MIT"
 authors = [
     "Claudio Fernandes de Souza Rodrigues <claudiofsrodrigues@gmail.com>",
 ]
-rust-version = "1.86"
+rust-version = "1.88"
 description = "A fast and interactive viewer for CSV, Json and Parquet data."
 keywords = [
     "csv",

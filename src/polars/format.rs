@@ -68,9 +68,7 @@ mod tests_format_columns {
 
         assert!(
             df_output.equals_missing(&df_expected),
-            "Failed round float columns.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
+            "Failed round float columns.\nOutput:\n{df_output:?}\nExpected:\n{df_expected:?}"
         );
 
         Ok(())

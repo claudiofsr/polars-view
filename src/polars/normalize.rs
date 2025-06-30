@@ -150,10 +150,7 @@ mod tests_normalize_float_strings {
     fn assert_df_equal(df_output: &DataFrame, df_expected: &DataFrame, context: &str) {
         assert!(
             df_output.equals_missing(df_expected),
-            "\nAssertion Failed: {}\nOutput DF:\n{}\nExpected DF:\n{}\n",
-            context,
-            df_output,
-            df_expected
+            "\nAssertion Failed: {context}\nOutput DF:\n{df_output}\nExpected DF:\n{df_expected}\n"
         );
     }
 
@@ -251,11 +248,11 @@ mod tests_normalize_float_strings {
 
         let regex = "^Value_PT_1$"; // Select only the first PT value column
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = normalize_float_strings_by_regex(df_input.clone(), regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(&df_output, &df_expected, "Single PT column normalization");
         assert_eq!(df_output.schema(), df_expected.schema());
@@ -287,11 +284,11 @@ mod tests_normalize_float_strings {
 
         let regex = "^Value_.*$"; // Select all columns starting with "Value_"
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = normalize_float_strings_by_regex(df_input.clone(), regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(
             &df_output,
@@ -321,11 +318,11 @@ mod tests_normalize_float_strings {
 
         let regex = "^Mixed_Data$"; // Select only the mixed data column
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = normalize_float_strings_by_regex(df_input.clone(), regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(&df_output, &df_expected, "Mixed_Data column normalization");
         assert_eq!(df_output.schema(), df_expected.schema());
@@ -340,11 +337,11 @@ mod tests_normalize_float_strings {
 
         let regex = "^NonExistent_$"; // Regex that doesn't match
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = normalize_float_strings_by_regex(df_input.clone(), regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(&df_output, &df_expected, "No matching columns");
         assert_eq!(df_output.schema(), df_expected.schema());
@@ -357,10 +354,10 @@ mod tests_normalize_float_strings {
         let df_input = create_shared_df()?;
         let regex = "^Already_F64$"; // Select only the f64 column
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let result = normalize_float_strings_by_regex(df_input.clone(), regex); // Expect error
-        println!("Result (expecting error): {:?}", result);
+        println!("Result (expecting error): {result:?}");
 
         assert!(
             result.is_err(),
@@ -368,7 +365,7 @@ mod tests_normalize_float_strings {
         );
 
         if let Err(e) = result {
-            println!("Got expected error: {}", e);
+            println!("Got expected error: {e}");
             // Check that the error is related to the string namespace function
             assert!(
                 e.to_string().contains("str"),
@@ -396,11 +393,11 @@ mod tests_normalize_float_strings {
              "Amount" => &[1234.56, 78.90, 100.0]        // Unchanged Float64
         )?;
 
-        println!("Input DF:\n{}", df_input);
-        println!("Regex: {}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("Regex: {regex}");
         let df_output = normalize_float_strings_by_regex(df_input.clone(), regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert!(df_output.equals_missing(&df_expected));
         Ok(())
@@ -423,11 +420,11 @@ mod tests_normalize_float_strings {
             "Cost_US" => &["900.00", "20.00"] // Unchanged
         )?;
 
-        println!("Input DF:\n{}", df_input);
-        println!("Regex: {}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("Regex: {regex}");
         let df_output = normalize_float_strings_by_regex(df_input.clone(), regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert!(df_output.equals_missing(&df_expected));
         Ok(())
@@ -445,10 +442,10 @@ mod tests_normalize_float_strings {
         let regex_error = "*";
 
         println!("Test Case 1: Wildcard with mixed types");
-        println!("Input DF:\n{}", df_input_error);
-        println!("Regex: {}", regex_error);
+        println!("Input DF:\n{df_input_error}");
+        println!("Regex: {regex_error}");
         let result = normalize_float_strings_by_regex(df_input_error.clone(), regex_error);
-        println!("Result (expecting error): {:?}", result);
+        println!("Result (expecting error): {result:?}");
         assert!(matches!(
             result,
             Err(PolarsViewError::InvalidDataTypeForRegex { .. })
@@ -467,11 +464,11 @@ mod tests_normalize_float_strings {
         )?;
 
         println!("Test Case 2: Wildcard with only string types");
-        println!("Input DF:\n{}", df_only_strings);
-        println!("Regex: {}", regex_ok);
+        println!("Input DF:\n{df_only_strings}");
+        println!("Regex: {regex_ok}");
         let df_output_ok = normalize_float_strings_by_regex(df_only_strings.clone(), regex_ok)?;
-        println!("Output DF:\n{}", df_output_ok);
-        println!("Expected DF:\n{}", expected_df);
+        println!("Output DF:\n{df_output_ok}");
+        println!("Expected DF:\n{expected_df}");
         assert!(df_output_ok.equals_missing(&expected_df));
         Ok(())
     }
@@ -482,10 +479,10 @@ mod tests_normalize_float_strings {
         let df_input = df!("col_A" => &["1,23"])?;
         let regex = "Value_EU"; // Does not start with ^ or end with $
 
-        println!("Input DF:\n{}", df_input);
-        println!("Regex: {}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("Regex: {regex}");
         let result = normalize_float_strings_by_regex(df_input, regex);
-        println!("Result (expecting error InvalidRegexPattern): {:?}", result);
+        println!("Result (expecting error InvalidRegexPattern): {result:?}");
 
         assert!(matches!(result, Err(PolarsViewError::InvalidRegexPattern(s)) if s == regex));
         Ok(())
@@ -497,10 +494,10 @@ mod tests_normalize_float_strings {
         let df_input = df!("col_A" => &["1,23"])?;
         let regex = "^Val[ue$"; // Invalid syntax '['
 
-        println!("Input DF:\n{}", df_input);
-        println!("Regex: {}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("Regex: {regex}");
         let result = normalize_float_strings_by_regex(df_input, regex);
-        println!("Result (expecting error InvalidRegexSyntax): {:?}", result);
+        println!("Result (expecting error InvalidRegexSyntax): {result:?}");
 
         assert!(matches!(
             result,
@@ -518,13 +515,10 @@ mod tests_normalize_float_strings {
         )?;
         let regex = "^.*_EU$"; // Matches both "Value_EU" (String) and "Count_EU" (Int64)
 
-        println!("Input DF:\n{}", df_input);
-        println!("Regex: {}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("Regex: {regex}");
         let result = normalize_float_strings_by_regex(df_input, regex);
-        println!(
-            "Result (expecting error InvalidDataTypeForRegex): {:?}",
-            result
-        );
+        println!("Result (expecting error InvalidDataTypeForRegex): {result:?}");
 
         assert!(matches!(
             result,
@@ -542,19 +536,19 @@ mod tests_normalize_float_strings {
         let regex_pattern = "^.*$";
         let df_expected = df_input.clone();
 
-        println!("Input DF (empty):\n{}", df_input);
+        println!("Input DF (empty):\n{df_input}");
 
-        println!("Regex: {}", regex_wildcard);
+        println!("Regex: {regex_wildcard}");
         let df_output_wild = normalize_float_strings_by_regex(df_input.clone(), regex_wildcard)?;
-        println!("Output DF (wildcard):\n{}", df_output_wild);
-        println!("Expected DF (empty):\n{}", df_expected);
+        println!("Output DF (wildcard):\n{df_output_wild}");
+        println!("Expected DF (empty):\n{df_expected}");
         assert!(df_output_wild.equals(&df_expected));
         println!("--");
 
-        println!("Regex: {}", regex_pattern);
+        println!("Regex: {regex_pattern}");
         let df_output_regex = normalize_float_strings_by_regex(df_input.clone(), regex_pattern)?;
-        println!("Output DF (regex):\n{}", df_output_regex);
-        println!("Expected DF (empty):\n{}", df_expected);
+        println!("Output DF (regex):\n{df_output_regex}");
+        println!("Expected DF (empty):\n{df_expected}");
         assert!(df_output_regex.equals(&df_expected));
         Ok(())
     }

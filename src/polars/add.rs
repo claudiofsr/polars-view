@@ -233,7 +233,7 @@ mod tests_add_row_index_column {
             // Conflict with BaseName, BaseName_0 to BaseName_999
             // Use format!("{}_{}", base_name, suffix_counter) pattern (starts suffix at 1 in helper)
             let suffix = i + 1; // Helper logic starts suffix at 1
-            let col = Column::new(format!("BaseName_{}", suffix).into(), &[i as i32]);
+            let col = Column::new(format!("BaseName_{suffix}").into(), &[i as i32]);
             df_input.with_column(col)?;
         }
 

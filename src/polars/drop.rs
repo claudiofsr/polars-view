@@ -133,11 +133,11 @@ mod tests_drop_cols {
             "IgnoreMe" => &[true, false]
         )?;
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = drop_columns_by_regex(df_input, regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(
             &df_output,
@@ -161,11 +161,11 @@ mod tests_drop_cols {
             "IgnoreMe" => &[true, false]
         )?;
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = drop_columns_by_regex(df_input, regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(
             &df_output,
@@ -185,11 +185,11 @@ mod tests_drop_cols {
         // The most idiomatic way to represent this is DataFrame::empty().
         let df_expected = DataFrame::empty();
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = drop_columns_by_regex(df_input, regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         // Check schema has 0 columns AND 0 rows now
         assert_eq!(df_output.width(), 0, "Wildcard should drop all columns");
@@ -212,11 +212,11 @@ mod tests_drop_cols {
         // Expected output is the same as the input
         let df_expected = df_input.clone();
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = drop_columns_by_regex(df_input, regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(&df_output, &df_expected, "No matching columns to drop");
         assert_eq!(df_output.width(), 5);
@@ -241,8 +241,7 @@ mod tests_drop_cols {
                 result.as_ref().unwrap_err(),
                 PolarsViewError::InvalidRegexSyntax { pattern, error: _ } if pattern == regex
             ),
-            "Expected InvalidRegexSyntax error, got {:?}",
-            result
+            "Expected InvalidRegexSyntax error, got {result:?}"
         );
     }
 
@@ -264,8 +263,7 @@ mod tests_drop_cols {
                 result.as_ref().unwrap_err(),
                 PolarsViewError::InvalidRegexPattern(pattern) if pattern == regex
             ),
-            "Expected InvalidRegexPattern error, got {:?}",
-            result
+            "Expected InvalidRegexPattern error, got {result:?}"
         );
     }
 
@@ -282,11 +280,11 @@ mod tests_drop_cols {
              "B" => Vec::<String>::new()
         )?;
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = drop_columns_by_regex(df_input, regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(&df_output, &df_expected, "Empty input DataFrame");
         assert!(df_output.is_empty()); // Double check it's empty
@@ -304,11 +302,11 @@ mod tests_drop_cols {
 
         let df_expected = DataFrame::empty();
 
-        println!("Input DF:\n{}", df_input);
-        println!("regex:{}", regex);
+        println!("Input DF:\n{df_input}");
+        println!("regex:{regex}");
         let df_output = drop_columns_by_regex(df_input, regex)?;
-        println!("Output DF:\n{}", df_output);
-        println!("Expected DF:\n{}", df_expected);
+        println!("Output DF:\n{df_output}");
+        println!("Expected DF:\n{df_expected}");
 
         assert_df_equal(&df_output, &df_expected, "Wildcard on empty DataFrame");
         assert_eq!(df_output.width(), 0);

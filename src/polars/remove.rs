@@ -78,9 +78,7 @@ mod tests_remove_null_columns {
 
         assert!(
             df_output.equals_missing(&df_expected),
-            "Failed removing some null columns.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
+            "Failed removing some null columns.\nOutput:\n{df_output:?}\nExpected:\n{df_expected:?}"
         );
 
         Ok(())
@@ -101,9 +99,7 @@ mod tests_remove_null_columns {
 
         assert!(
             df_output.equals_missing(&df_expected),
-            "Failed when no columns should be removed.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
+            "Failed when no columns should be removed.\nOutput:\n{df_output:?}\nExpected:\n{df_expected:?}"
         );
 
         Ok(())
@@ -121,9 +117,7 @@ mod tests_remove_null_columns {
         // Use equals for empty DataFrames as equals_missing might behave differently
         assert!(
             df_output.equals(&df_expected),
-            "Failed for empty input DataFrame.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
+            "Failed for empty input DataFrame.\nOutput:\n{df_output:?}\nExpected:\n{df_expected:?}"
         );
 
         Ok(())
@@ -149,9 +143,7 @@ mod tests_remove_null_columns {
 
         assert!(
             df_output.equals(&df_expected),
-            "Failed when all columns are null.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
+            "Failed when all columns are null.\nOutput:\n{df_output:?}\nExpected:\n{df_expected:?}"
         );
 
         // Also check the shape explicitly if desired
@@ -181,9 +173,7 @@ mod tests_remove_null_columns {
 
         assert!(
             df_output.equals(&df_expected),
-            "Failed for DataFrame with zero rows.\nOutput:\n{:?}\nExpected:\n{:?}",
-            df_output,
-            df_expected
+            "Failed for DataFrame with zero rows.\nOutput:\n{df_output:?}\nExpected:\n{df_expected:?}"
         );
 
         Ok(())
