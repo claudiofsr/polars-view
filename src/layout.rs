@@ -4,8 +4,9 @@ use crate::{
 };
 
 use egui::{
-    CentralPanel, Color32, Context, FontId, Frame, Grid, Key, KeyboardShortcut, Layout, Modifiers,
-    RichText, ScrollArea, SidePanel, Stroke, TopBottomPanel, ViewportCommand, menu, style::Visuals,
+    CentralPanel, Color32, Context, FontId, Frame, Grid, Key, KeyboardShortcut, Layout, MenuBar,
+    Modifiers, RichText, ScrollArea, SidePanel, Stroke, TopBottomPanel, ViewportCommand,
+    style::Visuals,
 };
 use std::{future::Future, sync::Arc};
 use tokio::sync::oneshot::{self, Receiver, error::TryRecvError};
@@ -358,7 +359,7 @@ impl PolarsViewApp {
     fn render_menu_bar(&mut self, ctx: &Context) {
         TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // Use egui's built-in menu bar layout.
-            menu::bar(ui, |ui| {
+            MenuBar::new().ui(ui, |ui| {
                 // Arrange menu buttons horizontally.
                 ui.horizontal(|ui| {
                     self.render_file_menu(ui); // "File" menu
@@ -384,7 +385,7 @@ impl PolarsViewApp {
                     // "Open File..." button
                     if ui.button("Open File...").clicked() {
                         self.handle_open_file(ui.ctx()); // Trigger the action.
-                        ui.close_menu(); // Close the menu after clicking.
+                        ui.close(); // Close the menu after clicking.
                     }
                     ui.label("Ctrl + O");
                     ui.end_row();
@@ -396,7 +397,7 @@ impl PolarsViewApp {
                         .clicked()
                     {
                         self.handle_save_file(ui.ctx());
-                        ui.close_menu();
+                        ui.close();
                     }
                     ui.label("Ctrl + S");
                     ui.end_row();
@@ -408,7 +409,7 @@ impl PolarsViewApp {
                         .clicked()
                     {
                         self.handle_save_as(ui.ctx());
-                        ui.close_menu();
+                        ui.close();
                     }
                     ui.label("Ctrl + A");
                     ui.end_row();
@@ -424,7 +425,7 @@ impl PolarsViewApp {
                     // "Settings" button (Placeholder - shows a basic notification)
                     if ui.button("Settings").clicked() {
                         self.notification = Some(Box::new(Settings {})); // Show placeholder.
-                        ui.close_menu();
+                        ui.close();
                     }
                     ui.label(""); // Placeholder for alignment.
                     ui.end_row();
