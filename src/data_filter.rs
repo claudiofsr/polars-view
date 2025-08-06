@@ -326,7 +326,7 @@ impl DataFilter {
         tracing::debug!("Reading NDJSON data from: {}", self.absolute_path.display());
 
         // Clone data from self needed for the task closure.
-        let path_buf_for_task = self.absolute_path.clone();
+        let path_buf_for_task = PlPath::Local(self.absolute_path.clone().into());
         let infer_schema_rows_for_task = self.infer_schema_rows;
 
         // *** Use the helper function ***
@@ -359,7 +359,7 @@ impl DataFilter {
         );
 
         // Clone data from self needed for the task closure.
-        let path_buf_for_task = self.absolute_path.clone();
+        let path_buf_for_task = PlPath::Local(self.absolute_path.clone().into());
         let args = ScanArgsParquet {
             // ScanArgsParquet should be Send
             low_memory: false, // Configure scan arguments as needed.
@@ -568,8 +568,10 @@ impl DataFilter {
             };
         }
 
+        let plpath = PlPath::Local(self.absolute_path.clone().into());
+
         // Configure the LazyCsvReader using settings from `self`.
-        let lazyframe = LazyCsvReader::new(&self.absolute_path)
+        let lazyframe = LazyCsvReader::new(plpath)
             .with_low_memory(false) // Can be set to true for lower memory usage at cost of speed.
             .with_encoding(CsvEncoding::LossyUtf8) // Gracefully handle potential encoding errors.
             .with_has_header(true) // Assume a header row.

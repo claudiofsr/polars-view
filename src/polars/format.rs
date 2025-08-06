@@ -16,7 +16,9 @@ use polars::prelude::*;
 #[allow(dead_code)]
 pub fn format_columns(dataframe: DataFrame, decimals: u32) -> PolarsResult<DataFrame> {
     // Select columns with Float32 or Float64 data types
-    let float_cols_selector = dtype_cols(&[DataType::Float32, DataType::Float64]);
+    let float_cols_selector = dtype_cols(&[DataType::Float32, DataType::Float64])
+        .as_selector()
+        .as_expr();
 
     dataframe
         .lazy()

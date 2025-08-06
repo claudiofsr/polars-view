@@ -101,6 +101,7 @@ pub fn build_null_expression(null_values_expr: Expr, apply_to_all_columns: bool)
     let replacement_expr: Expr = if apply_to_all_columns {
         // Universal Mode: Apply to ALL columns via casting and trimming string representation
         let condition = all() // Select current column value
+            .as_expr()
             .cast(DataType::String) // Cast to String
             .str()
             .strip_chars(lit(NULL)) // Trim whitespace from string representation
@@ -113,7 +114,7 @@ pub fn build_null_expression(null_values_expr: Expr, apply_to_all_columns: bool)
             .keep() // Keep original column name
     } else {
         // String-Only Mode: Apply only to String columns, trim original string
-        let string_cols_selector = dtype_col(&DataType::String);
+        let string_cols_selector = dtype_col(&DataType::String).as_selector().as_expr();
 
         let condition = string_cols_selector // Select only string columns
             .clone() // Clone needed for use in `otherwise`
@@ -427,6 +428,7 @@ mod tests_replace_values_with_null {
         let null_values_expr: Expr = series.implode()?.into_series().lit();
 
         let condition = all() // Select current column value
+            .as_expr()
             .cast(DataType::String) // Cast to String
             .str()
             .strip_chars(lit(NULL)) // Trim whitespace from string representation

@@ -126,6 +126,7 @@ pub fn normalize_float_strings_by_regex(
         .with_columns([
             // Select only the *validated* string columns that matched the regex
             cols(columns_to_transform) // Select multiple columns by name
+                .as_expr()
                 .str()
                 .replace_all(lit("."), lit(""), true) // Remove '.'
                 .str()

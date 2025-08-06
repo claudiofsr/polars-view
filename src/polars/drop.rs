@@ -78,7 +78,7 @@ pub fn drop_columns_by_regex(df: DataFrame, regex_pattern: &str) -> PolarsViewRe
     // --- 4. Build and Execute Lazy Plan ---
     // Drop the identified columns using the Lazy API for potential optimizations.
     df.lazy()
-        .drop([cols(columns_to_drop)]) // Remove the specified columns
+        .drop(by_name(columns_to_drop, true)) // Remove the specified columns
         .collect() // Execute the lazy plan
         .map_err(PolarsViewError::from) // Convert PolarsError to PolarsViewError
 }
