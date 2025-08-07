@@ -123,12 +123,12 @@ impl PolarsViewApp {
     /// Checks if a `Notification` is active and renders it using `egui::Window`.
     /// Removes the notification if its `show` method returns `false` (indicating it was closed).
     fn check_notification(&mut self, ctx: &Context) {
-        if let Some(notification) = &mut self.notification {
-            if !notification.show(ctx) {
-                // If `show` returns false (window closed by user or logic),
-                // clear the notification state.
-                self.notification = None;
-            }
+        if let Some(notification) = &mut self.notification
+            && !notification.show(ctx)
+        {
+            // If `show` returns false (window closed by user or logic),
+            // clear the notification state.
+            self.notification = None;
         }
     }
 
