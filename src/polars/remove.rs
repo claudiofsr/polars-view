@@ -1,22 +1,21 @@
 use polars::prelude::*;
 
-/// Removes columns from the DataFrame that consist entirely of null values.
+/// Removes columns from a DataFrame that consist entirely of null values.
 ///
-/// This optimized version avoids cloning full columns. It works by:
-/// 1. Identifying the names (`&str`) of columns containing at least one non-null value.
-/// 2. Using the efficient `DataFrame::select` method with those names.
+/// This optimized function identifies non-null columns without cloning them
+/// and then selects only those, creating a new DataFrame efficiently.
 ///
 /// ### Arguments
 ///
-/// * `df`: A reference to the input DataFrame.
+/// * `df`: The input `DataFrame` to be processed.
 ///
 /// ### Returns
 ///
-/// A `PolarsResult` containing the new DataFrame with only the columns
-/// that have at least one non-null value, or a `PolarsError` if selection fails.
+/// A `PolarsResult` with a new `DataFrame` containing only non-null columns,
+/// or a `PolarsError` on failure.
 pub fn remove_null_columns(df: DataFrame) -> PolarsResult<DataFrame> {
-    // 1. Partition the columns based on the null condition.
-    //    Iterate over the Series directly using get_columns().
+    // Partition columns into two groups: those to keep and those to remove.
+    // A column is kept if it contains at least one non-null value.
     let (cols_to_keep, cols_to_remove): (Vec<&Column>, Vec<&Column>) = df
         .get_columns()
         .iter()
@@ -25,20 +24,20 @@ pub fn remove_null_columns(df: DataFrame) -> PolarsResult<DataFrame> {
         // and the rest go into the second collection.
         .partition(|col| col.is_not_null().any()); // Predicate: keep if any value is not null
 
-    // 2. Get the names of the columns to keep.
+    // Extract the names of the columns that will be kept.
     let columns_to_keep: Vec<PlSmallStr> =
         cols_to_keep.iter().map(|col| col.name().clone()).collect();
 
-    // 3. Get the names of the columns that were removed.
+    // Extract the names of the columns that will be removed.
     let columns_to_remove: Vec<&PlSmallStr> = cols_to_remove.iter().map(|col| col.name()).collect();
 
-    // Log the removed columns names if tracing is enabled at debug level
+    // Log the names of removed columns for debugging purposes.
     tracing::debug!(removed_columns = ?columns_to_remove,
-        "{} Columns identified for removal (fully null)",
+        "{} columns removed for being fully null",
         cols_to_remove.len()
     );
 
-    // 4. Select only the columns to keep from the original DataFrame.
+    // Create a new DataFrame containing only the desired columns.
     df.select(columns_to_keep)
 }
 
