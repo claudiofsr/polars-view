@@ -338,11 +338,11 @@ pub trait LazyFrameExtension {
     /// number of decimal places using optimized Polars expressions.
     ///
     /// Columns of other data types remain unchanged.
-    fn format_float_columns(self, decimals: u32) -> Self;
+    fn round_float_columns(self, decimals: u32) -> Self;
 }
 
 impl LazyFrameExtension for LazyFrame {
-    fn format_float_columns(self, decimals: u32) -> Self {
+    fn round_float_columns(self, decimals: u32) -> Self {
         // Select columns with Float32 or Float64 data types
         let float_cols_selector = dtype_cols(&[DataType::Float32, DataType::Float64])
             .as_selector()
@@ -456,7 +456,7 @@ mod tests_format_columns {
 
         dbg!(&df_input);
         dbg!(&decimals);
-        let df_output = df_input.lazy().format_float_columns(decimals).collect()?;
+        let df_output = df_input.lazy().round_float_columns(decimals).collect()?;
         dbg!(&df_output);
 
         assert!(
@@ -478,7 +478,7 @@ mod tests_format_columns {
 
         dbg!(&df_input);
         dbg!(&decimals);
-        let df_output = df_input.lazy().format_float_columns(decimals).collect()?;
+        let df_output = df_input.lazy().round_float_columns(decimals).collect()?;
         dbg!(&df_output);
 
         assert!(df_output.equals(&df_expected)); // equals is fine here as no nulls involved
@@ -500,7 +500,7 @@ mod tests_format_columns {
 
         dbg!(&df_input);
         dbg!(&decimals);
-        let df_output = df_input.lazy().format_float_columns(decimals).collect()?;
+        let df_output = df_input.lazy().round_float_columns(decimals).collect()?;
         dbg!(&df_output);
 
         assert!(df_output.equals_missing(&df_expected));
