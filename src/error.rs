@@ -22,56 +22,33 @@ implement `Display` using the `#[error(...)]` attribute.
 */
 #[derive(Error, Debug)]
 pub enum PolarsViewError {
-    // Wrapper for standard IO errors.
-    // The #[from] attribute automatically converts io::Error to PolarsViewError::Io.
-    #[error("IO error: {0}")]
-    Io(#[from] io::Error),
-
-    // Wrapper for Polars errors (from the Polars library).
-    // #[from] handles conversion. Handles errors from Polars operations,
-    // including invalid lazy plans or errors during execution (like bad casts or regex syntax).
-    #[error("Polars error: {0}")]
-    Polars(#[from] PolarsError),
+    // Errors occurring when receiving data from asynchronous channels.
+    #[error("Channel receive error: {0}")]
+    ChannelReceive(String),
 
     // Errors encountered while parsing CSV data (e.g., inconsistent columns, invalid data).
     #[error("CSV parsing error: {0}")]
     CsvParsing(String),
 
-    // Errors related to the file type (e.g., unsupported file extension, incorrect file format).
-    #[error("File type error: {0}")]
-    FileType(String),
-
-    // Wrapper for Tokio JoinErrors, occurring when asynchronous tasks fail.
-    #[error("Tokio JoinError: {0}")]
-    TokioJoin(#[from] JoinError),
-
-    // Errors occurring when receiving data from asynchronous channels.
-    #[error("Channel receive error: {0}")]
-    ChannelReceive(String),
-
     // Indicates that a specified file could not be found, storing the attempted path.
     #[error("File not found: {0:#?}")]
     FileNotFound(PathBuf),
 
-    // Indicates an invalid CSV delimiter was provided (empty or too long).
-    #[error("Invalid CSV delimiter: '{0}'")] // Added quotes for clarity
-    InvalidDelimiter(String),
+    // Errors related to the file type (e.g., unsupported file extension, incorrect file format).
+    #[error("File type error: {0}")]
+    FileType(String),
 
-    // Indicates that a provided file extension or file type are not supported.
-    #[error("Unsupported file type: {0}")]
-    UnsupportedFileType(String),
+    // Wrapper for standard IO errors.
+    // The #[from] attribute automatically converts io::Error to PolarsViewError::Io.
+    #[error("IO error: {0}")]
+    Io(#[from] io::Error),
 
-    // --- Regex Errors ---
-    /// Indicates that a regex pattern provided for column selection does not meet the required format (`*` or `^...$`).
-    #[error(
-        "Invalid regex pattern for column selection: '{0}'.\n\
-        Pattern must be '*' or (start with '^' and end with '$')."
-    )]
-    InvalidRegexPattern(String),
-
-    /// Indicates that the provided regex pattern has invalid syntax.
-    #[error("Invalid regex syntax in pattern '{pattern}'\n{error}")]
-    InvalidRegexSyntax { pattern: String, error: String },
+    // --- End Regex Errors ---
+    #[error("Invalid value for command-line argument '{arg_name}': {reason}")]
+    InvalidArgument {
+        arg_name: String, // Context about *which* argument failed
+        reason: String,   // The specific error reason
+    },
 
     /// Indicates that the regex pattern matched columns that are not `DataType::String`, which is required for normalization.
     #[error(
@@ -85,12 +62,35 @@ pub enum PolarsViewError {
         columns: Vec<String>,
     },
 
-    // --- End Regex Errors ---
-    #[error("Invalid value for command-line argument '{arg_name}': {reason}")]
-    InvalidArgument {
-        arg_name: String, // Context about *which* argument failed
-        reason: String,   // The specific error reason
-    },
+    // Indicates an invalid CSV delimiter was provided (empty or too long).
+    #[error("Invalid CSV delimiter: '{0}'")] // Added quotes for clarity
+    InvalidDelimiter(String),
+
+    // --- Regex Errors ---
+    /// Indicates that a regex pattern provided for column selection does not meet the required format (`*` or `^...$`).
+    #[error(
+        "Invalid regex pattern for column selection: '{0}'.\n\
+        Pattern must be '*' or (start with '^' and end with '$')."
+    )]
+    InvalidRegexPattern(String),
+
+    /// Indicates that the provided regex pattern has invalid syntax.
+    #[error("Invalid regex syntax in pattern '{pattern}'\n{error}")]
+    InvalidRegexSyntax { pattern: String, error: String },
+
+    // Wrapper for Polars errors (from the Polars library).
+    // #[from] handles conversion. Handles errors from Polars operations,
+    // including invalid lazy plans or errors during execution (like bad casts or regex syntax).
+    #[error("Polars error: {0}")]
+    Polars(#[from] PolarsError),
+
+    // Wrapper for Tokio JoinErrors, occurring when asynchronous tasks fail.
+    #[error("Tokio JoinError: {0}")]
+    TokioJoin(#[from] JoinError),
+
+    // Indicates that a provided file extension or file type are not supported.
+    #[error("Unsupported file type: {0}")]
+    UnsupportedFileType(String),
 
     // A catch-all for other, less specific errors not covered by specific variants.
     // Uses a String to describe the error. Consider using this sparingly.
