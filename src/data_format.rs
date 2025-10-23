@@ -98,7 +98,7 @@ impl Default for DataFormat {
     fn default() -> Self {
         DataFormat {
             alignments: DEFAULT_ALIGNMENTS.clone(), // Clone defaults for this instance.
-            auto_col_width: false,                  // Default to faster fixed-width columns.
+            auto_col_width: true,                   // Default automatic content-based sizing.
             decimal: 2,                             // Default float precision.
             header_padding: 5.0,                    // Default extra padding for enhanced header.
             use_enhanced_header: true,              // Default to enhanced header style.
