@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.52.0"
+version = "0.52.1"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -27,7 +27,7 @@ clap = { version = "4.5", features = ["color", "derive"] }
 eframe = { version = "0.33", features = ["persistence"] }
 egui_extras = { version = "0.33", features = ["serde"] }
 regex = "1.12"
-rfd = { version ="0.15", features = ["file-handle-inner"] }
+rfd = { version ="0.16", features = ["file-handle-inner"] }
 thiserror = "2.0"
 tokio = { version = "1.48", features = ["full", "macros"] }
 tracing = "0.1"
@@ -64,7 +64,7 @@ features = [
 
 [dev-dependencies]
 # Dependencies ONLY needed for testing
-tempfile = "3.23"
+tempfile = "3.24"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
