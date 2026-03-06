@@ -1,0 +1,231 @@
+SQL Query 1:
+SELECT * FROM AllData;
+
+
+SQL Query 2:
+SELECT
+    "Ano do Período de Apuração",
+    "Trimestre do Período de Apuração",
+    "Mês do Período de Apuração",
+    "Tipo de Crédito",
+    "Natureza da Base de Cálculo dos Créditos",
+    "Valor da Base de Cálculo das Contribuições",
+    "Crédito vinculado à Receita Bruta Não Cumulativa: Tributada",
+    "Crédito vinculado à Receita Bruta Não Cumulativa: Não Tributada",
+    "Crédito vinculado à Receita Bruta Não Cumulativa: de Exportação",
+    "Crédito vinculado à Receita Bruta Total"
+FROM AllData
+Where
+    "Ano do Período de Apuração" = 2024
+And
+    "Mês do Período de Apuração" Like 'dez%'
+
+
+SQL Query 3:
+SELECT *
+Except(
+    "Crédito vinculado à Receita Bruta Total",
+    "Crédito vinculado à Receita Bruta Não Cumulativa",
+    "Mês do Período de Apuração"
+)
+FROM AllData
+Where
+    "Ano do Período de Apuração" = 2024
+And
+    "Trimestre do Período de Apuração" = 4
+And
+    "Mês do Período de Apuração" Like '%dez%'
+
+
+SQL Query 4:
+SELECT
+  AllData.*,
+  SubStr("Período Apuração Crédito", 14, 4) AS Ano
+FROM
+  AllData
+WHERE
+  SubStr("Período Apuração Crédito", 14, 4) = '2019';
+
+
+SQL Query 5:
+SELECT *
+FROM AllData
+Where
+    "Natureza da Base de Cálculo dos Créditos" is not null
+And
+    "Tipo de Operação" ILike '%entrada%'
+And
+    "Código de Situação Tributária (CST)" Between 50 And 66
+ORDER BY
+    "Código de Situação Tributária (CST)"
+
+
+SQL Query 6:
+-- Define a Common Table Expression (CTE) to add the 'Ano' column
+WITH DadosComAno AS (
+  SELECT
+    *, -- Select all original columns from AllData
+    -- Extract the year (4 characters starting from position 14)
+    -- and cast it to an Integer. Assuming SubStr uses 1-based indexing.
+    CAST(SubStr("Período Apuração Crédito", 14, 4) AS INTEGER) AS Ano
+  FROM AllData -- Source table
+)
+-- Main SELECT statement operating on the CTE
+SELECT
+    * -- Select all columns from the CTE result ('AllData' columns + 'Ano') initially
+
+    -- Clause to exclude specific columns from the selection
+    EXCEPT (
+        "Valor Total Crédito",
+        "Valor Crédito Data Transmissão"
+    )
+
+    -- Clause to replace the content of a specific column
+    REPLACE (
+        -- Calculate the new value: first 12 characters of the original column.
+        -- Assuming SubStr uses 1-based indexing.
+        SubStr("Período Apuração Crédito", 1, 12)
+        -- Assign the new value back to the same column name, effectively modifying it.
+        AS "Período Apuração Crédito"
+    )
+
+    -- Clause to rename a column *after* exclusion and replacement
+    RENAME (
+        "PER/DCOMP" AS "Pedido de Ressarcimento (PER)"
+    )
+
+FROM DadosComAno -- Specify the source for the SELECT (our CTE)
+
+WHERE Ano >= 2019 -- Filter the rows based on the 'Ano' column created in the CTE
+
+ORDER BY
+  Ano ASC,                         -- 1. Sort by the integer 'Ano' (ascending)
+  "Período Apuração Crédito" ASC,  -- 2. Then sort by the *modified* period string (ascending)
+  "Tipo Crédito" DESC;             -- 3. Finally, sort by 'Tipo Crédito' (descending)
+
+
+//----------------------------------------------------------------------------//
+//                                 Examples                                   //
+//----------------------------------------------------------------------------//
+
+Example 1:
+-- Select all columns and rows
+SELECT * FROM AllData;
+
+Example 2:
+-- Rename a column, preserving the original order of the columns.
+SELECT *
+RENAME("Trimestre do Período de Apuração" AS "New Name")
+FROM AllData;
+
+Example 3:
+-- Filter rows where column value:
+-- IS NULL or IS NOT NULL
+SELECT *
+FROM AllData
+WHERE
+    `CNPJ Base` IS NULL
+OR
+    `Ano do Período de Apuração` IS NOT NULL;
+
+Example 4:
+-- Select specific columns by name
+-- Use LIMIT to specify records to return.
+SELECT
+    `CNPJ Base`,
+    "Ano do Período de Apuração"
+FROM AllData
+Limit 10;
+
+Example 5:
+-- Select all columns *except* specific ones
+-- Exclude columns using SELECT * Except(colA, colB, ...) FROM AllData
+SELECT *
+EXCEPT(
+    `CNPJ Base`,
+    "Ano do Período de Apuração"
+)
+FROM AllData;
+
+Example 6:
+-- Filter rows where an integer column equals a value
+SELECT *
+FROM AllData
+WHERE
+    `Ano do Período de Apuração` = 2024;
+
+Example 7:
+-- Filter rows using AND with integer and string columns
+SELECT *
+FROM AllData
+WHERE
+    `Ano do Período de Apuração` = 2024
+AND
+    `CNPJ Base` = 'aa bb';
+
+Example 8:
+-- Filter rows using AND with integer and float comparison
+SELECT *
+FROM AllData
+WHERE
+    `Ano do Período de Apuração` = 2024
+AND
+    `Alíquota de PIS/PASEP (em percentual)` > 1.0;
+
+Example 9:
+-- Count occurrences of values in a column (frequency)
+SELECT
+    `Ano do Período de Apuração`,
+    `Mês do Período de Apuração`,
+    COUNT(*) AS Frequency
+FROM AllData
+GROUP BY
+    `Ano do Período de Apuração`,
+    `Mês do Período de Apuração`
+ORDER BY
+    Frequency DESC;
+
+Example 10:
+-- Filter using LIKE for pattern matching and checking for NULL
+SELECT *
+FROM AllData
+WHERE
+    `CNPJ Base` LIKE 'Saldo%'
+AND
+    `Alíquota de PIS/PASEP (em percentual)` IS NULL;
+
+Example 11:
+-- Select specific columns based on conditions
+-- SubStr: Extract a substring from a string
+-- (start at position 1, extract 16 characters)
+SELECT
+    `Ano do Período de Apuração`,
+    "Trimestre do Período de Apuração",
+    SubStr(`Natureza da Base de Cálculo dos Créditos`,1,16),
+    -- Use Modulo Operator % to hide actual values
+    `Valor da Base de Cálculo das Contribuições` % 117
+FROM AllData
+WHERE
+    `Natureza da Base de Cálculo dos Créditos` LIKE '%Saldo%' -- Filter condition 1
+AND ( -- Filter condition 2 (using OR)
+    `Mês do Período de Apuração` = ''
+    OR
+    `Mês do Período de Apuração` IS NULL
+);
+
+Example 12:
+-- Select all columns except a specific list, with filtering
+SELECT *
+EXCEPT( -- List columns to exclude
+    `Mês do Período de Apuração`,
+    `Crédito vinculado à Receita Bruta Não Cumulativa`,
+    `Crédito vinculado à Receita Bruta Cumulativa (Valores Excluídos)`,
+    `Crédito vinculado à Receita Bruta Total`
+)
+FROM AllData
+WHERE -- Apply filters
+    `Ano do Período de Apuração` = 2024
+AND
+    `Trimestre do Período de Apuração` = 4
+AND
+    `Mês do Período de Apuração` ILIKE '%dez%';
