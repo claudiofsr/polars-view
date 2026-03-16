@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.53.2"
+version = "0.53.3"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -23,7 +23,7 @@ keywords = [
 # Main application dependencies
 anstyle = "1.0" # Used by clap color
 cfg-if = "1.0"
-clap = { version = "4.5", features = ["color", "derive"] }
+clap = { version = "4.6", features = ["color", "derive"] }
 eframe = { version = "0.33", features = ["persistence"] }
 egui_extras = { version = "0.33", features = ["serde"] }
 regex = "1.12"
@@ -65,7 +65,7 @@ features = [
 
 [dev-dependencies]
 # Dependencies ONLY needed for testing
-tempfile = "3.26"
+tempfile = "3.27"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
