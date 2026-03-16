@@ -249,69 +249,77 @@ impl PolarsViewApp {
 
     // --- Event Handlers ---
 
-    /// Handles the "Open File" action (triggered by menu or Ctrl+O).
+    /// Centralized logic to initiate data loading from a filesystem path.
+    fn load_file_from_path(&mut self, path: std::path::PathBuf, ctx: &Context) {
+        tracing::info!(target: "polars_view", "Loading path: {}", path.display());
+
+        self.applied_filter
+            .set_path(&path)
+            .map(|_| {
+                self.applied_filter.read_data_from_file = true;
+                let future = DataContainer::default()
+                    .load_data(self.applied_filter.clone(), self.applied_format.clone());
+
+                self.run_data_future(Box::new(Box::pin(future)), ctx);
+            })
+            .unwrap_or_else(|error| {
+                tracing::error!("Load failed for {:?}: {}", path, error);
+                self.notification = Some(Box::new(Error {
+                    message: format!("Error: {}\nPath: {}", error, path.display()),
+                }));
+            });
+    }
+
+    /// Handles the "Open File" action via native dialog.
+    ///
+    /// Blocks the UI thread while the dialog is open, which is standard behavior
+    /// for modal file pickers.
     fn handle_open_file(&mut self, ctx: &Context) {
-        // Use the runtime to block on the async file dialog function.
-        // This is acceptable here as it's a direct user action expecting a pause.
         match self.runtime.block_on(open_file()) {
-            Ok(path) => {
-                // If a path was successfully selected:
-                // Update the path in the filter state.
-                match self.applied_filter.set_path(&path) {
-                    // Case 1: Path was successfully set and canonicalized.
-                    Ok(()) => {
-                        // Log the successful operation and the canonical path now stored.
-                        tracing::debug!(
-                            "Open File: Path set successfully: {:?}. Triggering load_data.",
-                            self.applied_filter.absolute_path // Log the verified, absolute path
-                        );
-
-                        self.applied_filter.read_data_from_file = true;
-                        let dc = DataContainer::default();
-
-                        // Create the asynchronous future to load the data using the updated filter.
-                        let future = dc.load_data(
-                            self.applied_filter.clone(), // Clone state needed for the async task
-                            self.applied_format.clone(), // Clone format state as well
-                        );
-
-                        // Run the data loading task in the background.
-                        // Box::pin is necessary for futures that might be !Unpin.
-                        // Box::new creates the DataFuture trait object.
-                        self.run_data_future(Box::new(Box::pin(future)), ctx);
-                    }
-                    // Case 2: Failed to set the path (e.g., path doesn't exist, canonicalization failed).
-                    Err(error) => {
-                        // Log the specific error encountered.
-                        tracing::error!(
-                            "Open File: Failed to set or canonicalize path {:?}: {}",
-                            path, // Log the original path that caused the error
-                            error
-                        );
-
-                        // Show an error notification to the user.
-                        // Format a user-friendly message including the error and the problematic path.
-                        self.notification = Some(Box::new(Error {
-                            message: format!(
-                                "Error opening file path:\n{}\n\nPath: {}",
-                                error,
-                                path.display() // Use .display() for a cleaner path representation in UI
-                            ),
-                        }));
-                    }
-                }
-            }
+            Ok(path) => self.load_file_from_path(path, ctx),
             Err(PolarsViewError::FileNotFound(_)) => {
-                // User cancelled the dialog, do nothing. Log potentially?
                 tracing::debug!("File open dialog cancelled by user.");
             }
             Err(e) => {
-                // Other error opening the dialog itself.
                 self.notification = Some(Box::new(Error {
                     message: e.to_string(),
                 }));
             }
         }
+    }
+
+    /// Detects and processes files dropped onto the application window.
+    fn handle_dropped_files(&mut self, ctx: &Context) {
+        // Collect the first valid path if a drop occurred
+        let dropped_path = ctx.input(|i| i.raw.dropped_files.iter().find_map(|f| f.path.clone()));
+
+        if let Some(path) = dropped_path {
+            // Log with tracing (standard Rust idiomatic way)
+            tracing::info!(target: "polars_view", "File dropped: {}", path.display());
+
+            self.load_file_from_path(path, ctx);
+
+            // Request repaint ensures the UI updates to show loading state immediately
+            ctx.request_repaint();
+        }
+    }
+
+    /// Processes global keyboard shortcuts.
+    fn handle_shortcuts(&mut self, ctx: &Context) {
+        ctx.input_mut(|i| {
+            if i.consume_shortcut(&CTRL_O) {
+                // Open File
+                self.handle_open_file(ctx);
+            }
+            if i.consume_shortcut(&CTRL_S) {
+                // Save File
+                self.handle_save_file(ctx);
+            }
+            if i.consume_shortcut(&CTRL_A) {
+                // Save As...
+                self.handle_save_as(ctx);
+            }
+        });
     }
 
     /// Handles the "Save" action (Ctrl+S). Saves to the *original* file path.
@@ -706,80 +714,15 @@ impl eframe::App for PolarsViewApp {
     /// The main update function called by `eframe` on each frame (the "render loop").
     /// Responsible for handling events, updating state, and drawing the UI.
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        // 1. Check and display any active Notification windows (errors, etc.).
+        // 1. Essential UI state checks
         self.check_notification(ctx);
 
-        // 2. Handle file drag-and-drop events.
-        // Check if any files were dropped onto the window in this frame.
-        // Take the first dropped file only
-        if let Some(dropped_file) = ctx.input(|i| i.raw.dropped_files.first().cloned()) {
-            if let Some(path) = &dropped_file.path {
-                // Attempt to set the path in the filter state, handling potential errors.
-                match self.applied_filter.set_path(path) {
-                    // Case 1: Path was successfully set and canonicalized.
-                    Ok(()) => {
-                        // Log the successful operation and the canonical path now stored.
-                        tracing::debug!(
-                            "Drag-n-drop: Path set successfully: {:?}. Triggering load_data.",
-                            self.applied_filter.absolute_path // Log the verified, absolute path
-                        );
-
-                        // Create the asynchronous future to load the data using the updated filter.
-                        let dc = DataContainer::default();
-                        let future = dc.load_data(
-                            self.applied_filter.clone(), // Clone state needed for the async task
-                            self.applied_format.clone(), // Clone format state as well
-                        );
-
-                        // Run the data loading task in the background.
-                        // Box::pin is necessary for futures that might be !Unpin.
-                        // Box::new creates the DataFuture trait object.
-                        self.run_data_future(Box::new(Box::pin(future)), ctx);
-                    }
-                    // Case 2: Failed to set the path (e.g., path doesn't exist, canonicalization failed).
-                    Err(error) => {
-                        // Log the specific error encountered.
-                        tracing::error!(
-                            "Drag-n-drop: Failed to set or canonicalize path {:?}: {}",
-                            path, // Log the original path that caused the error
-                            error
-                        );
-
-                        // Show an error notification to the user.
-                        // Format a user-friendly message including the error and the problematic path.
-                        self.notification = Some(Box::new(Error {
-                            message: format!(
-                                "Error processing dropped file path:\n{}\n\nPath: {}",
-                                error,
-                                path.display() // Use .display() for a cleaner path representation in UI
-                            ),
-                        }));
-                    }
-                }
-            } else {
-                // Optional: Log if a dropped item lacked a path.
-                tracing::warn!(
-                    "Drag-n-drop: Ignored dropped item without a path: {:?}",
-                    dropped_file
-                );
-            }
-        }
+        // 2. Handle Drag-and-Drop
+        // On Wayland, it's important to check this every frame.
+        self.handle_dropped_files(ctx);
 
         // 3. Handle global keyboard shortcuts *before* drawing UI elements that might consume input.
-        ctx.input_mut(|i| {
-            if i.consume_shortcut(&CTRL_O) {
-                // Open File
-                self.handle_open_file(ctx);
-            }
-            if i.consume_shortcut(&CTRL_S) {
-                // Save File
-                self.handle_save_file(ctx);
-            }
-            if i.consume_shortcut(&CTRL_A) {
-                // Save As...
-                self.handle_save_as(ctx);
-            }
-        });
+        self.handle_shortcuts(ctx);
 
         // 4. Define the main UI layout using `egui` panels.
         // The order matters: Top/Bottom/Left/Right panels are defined *before* the CentralPanel.
