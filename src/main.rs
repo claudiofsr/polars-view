@@ -18,13 +18,13 @@ cargo b -r && cargo install --path=. --features format-special
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     // Initialize the tracing subscriber for logging.
-    // Use RUST_LOG environment variable to set logging level.  eg `export RUST_LOG=info`
+    // The log level can be controlled via the RUST_LOG environment variable (e.g., export RUST_LOG=info).
     tracing_subscriber::fmt::init();
 
-    // Parse command-line arguments.
+    // Parse command-line arguments into the Arguments struct.
     let args = Arguments::build();
 
-    // Configure the native options for the eframe application.
+    // Configure the native options for the eframe/egui application.
     let native_options = eframe::NativeOptions {
         centered: true,
         persist_window: true,
@@ -36,37 +36,46 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
-    // Run the eframe application.
+    // Start the native eframe application.
     eframe::run_native(
         "PolarsView",
         native_options,
         Box::new(move |creation_context| {
-            // Create a new PolarsViewApp. If a path is provided, load the data.
-            let app = if args.path.is_file() {
-                tracing::info!(target: "polars_view", "Loading path: {}", args.path.display());
+            // Determine the application's initial state based on provided command-line arguments.
+            let app_result = match &args.path {
+                // If a path was provided and it points to a valid file, initiate immediate loading.
+                Some(path) if path.is_file() => {
+                    tracing::info!(target: "polars_view", "Loading path: {}", path.display());
 
-                // Create data filters from command line arguments
-                let data_filter = DataFilter::new(&args)?;
+                    // Initialize data filters from command line arguments (e.g., delimiter, null values).
+                    // The '?' operator propagates errors to the outer Result block.
+                    let data_filter = DataFilter::new(&args)?;
 
-                // RUST_LOG=debug cargo run -- data.csv
-                tracing::debug!("main()\nDataFilter: {data_filter:#?}");
+                    tracing::debug!("Initialization DataFilter state: {data_filter:#?}");
 
-                // Load the data from the specified path.
-                let dc = DataContainer::default();
-                let future = dc.load_data(data_filter, DataFormat::default());
+                    // Initialize the DataContainer and prepare the asynchronous loading future.
+                    let dc = DataContainer::default();
+                    let future = dc.load_data(data_filter, DataFormat::default());
 
-                // Create a new PolarsViewApp with the data loading future.
-                PolarsViewApp::new_with_future(creation_context, Box::new(Box::pin(future)))
-            } else {
-                // Create a new PolarsViewApp without loading data.
-                PolarsViewApp::new(creation_context)
+                    // Create the application instance with the pending data loading task.
+                    PolarsViewApp::new_with_future(creation_context, Box::new(Box::pin(future)))
+                }
+                // Default case: Open the application with an empty state (no file loaded).
+                _ => {
+                    tracing::info!(target: "polars_view", "No valid file path provided. Opening empty application.");
+                    PolarsViewApp::new(creation_context)
+                }
             };
 
-            match app {
+            // Handle the result of the application initialization.
+            match app_result {
+                // On success, box the app and return it to eframe.
                 Ok(app) => Ok(Box::new(app)),
+                // On failure, log the error and return it. eframe will handle the graceful shutdown.
                 Err(err) => {
-                    error!("Failed to initialize PolarsViewApp: {}", err); //Log
-                    panic!("Failed to initialize PolarsViewApp: {err}"); //Panic
+                    error!("Failed to initialize PolarsViewApp: {}", err);
+                    // Convert the custom error into a boxed dynamic error for eframe.
+                    Err(Box::new(err))
                 }
             }
         }),

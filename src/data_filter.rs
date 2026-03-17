@@ -152,8 +152,10 @@ impl DataFilter {
     /// A `PolarsViewResult` containing the configured `DataFilter` or an error
     /// (e.g., if the path cannot be canonicalized).
     pub fn new(args: &Arguments) -> PolarsViewResult<Self> {
-        // Ensure the path exists and get its absolute, canonical form.
-        let absolute_path = args.path.canonicalize()?;
+        let absolute_path = match &args.path {
+            Some(p) => p.canonicalize()?, // Se houver path, tenta tornar absoluto
+            None => PathBuf::new(),       // Se não houver, inicia vazio
+        };
 
         // Determine apply_sql state from the CLI argument
         let apply_sql = args.query.is_some();

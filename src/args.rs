@@ -110,13 +110,12 @@ REGEX_PATTERN Requirements:
     /// Optional path to the data file (CSV, JSON, NDJSON, Parquet).
     #[arg(
         value_name = "FILE_PATH",
-        default_value = ".",
         required = false,
         help = "Path to data file (CSV/JSON/NDJSON/Parquet) [Optional]",
         long_help = "Path to the input data file.\n\
         If omitted, opens the UI to load a file manually (menu or drag-drop)."
     )]
-    pub path: PathBuf,
+    pub path: Option<PathBuf>,
 
     /// SQL query to apply after loading data [requires data file].
     #[arg(
@@ -248,7 +247,7 @@ mod tests_args {
         let path_str = "data.csv";
         let args = Arguments::parse_from(["polars-view", path_str]);
 
-        assert_eq!(args.path, test_path(path_str));
+        assert_eq!(args.path, Some(test_path(path_str)));
         // Check defaults
         assert_eq!(args.delimiter, DEFAULT_CSV_DELIMITER);
         assert_eq!(args.null_values, NULL_VALUES);
@@ -262,7 +261,7 @@ mod tests_args {
     fn test_args_defaults_with_dot_path() {
         let args = Arguments::parse_from(["polars-view", "."]); // Explicitly use default path
 
-        assert_eq!(args.path, test_path("."));
+        assert_eq!(args.path, Some(test_path(".")));
         // Check defaults
         assert_eq!(args.delimiter, DEFAULT_CSV_DELIMITER);
         assert_eq!(args.null_values, NULL_VALUES);
@@ -296,7 +295,7 @@ mod tests_args {
             path_str, // Path comes last usually
         ]);
 
-        assert_eq!(args.path, test_path(path_str));
+        assert_eq!(args.path, Some(test_path(path_str)));
         assert_eq!(args.delimiter, delim_str);
         assert_eq!(args.null_values, nulls_str);
         assert_eq!(args.query, Some(query_str.to_string()));
@@ -330,7 +329,7 @@ mod tests_args {
             path_str,
         ]);
 
-        assert_eq!(args.path, test_path(path_str));
+        assert_eq!(args.path, Some(test_path(path_str)));
         assert_eq!(args.delimiter, delim_str); // Value is captured even if not used for this format
         assert_eq!(args.null_values, nulls_str);
         assert_eq!(args.query, Some(query_str.to_string()));
@@ -342,9 +341,9 @@ mod tests_args {
     #[test]
     fn test_args_no_path_provided_uses_default() {
         // No path provided, clap should use the default_value "."
-        let args = Arguments::parse_from(["polars-view"]); // Use default path "."
+        let args = Arguments::parse_from(["polars-view"]); // Use default path: None
 
-        assert_eq!(args.path, test_path("."));
+        assert_eq!(args.path, None);
         // Defaults for others
         assert_eq!(args.delimiter, DEFAULT_CSV_DELIMITER);
         assert_eq!(args.null_values, NULL_VALUES);
@@ -361,7 +360,7 @@ mod tests_args {
         let query_str = "SELECT count(*) FROM AllData";
         let args = Arguments::parse_from(["polars-view", "-q", query_str, path_str]);
 
-        assert_eq!(args.path, test_path(path_str));
+        assert_eq!(args.path, Some(test_path(path_str)));
         assert_eq!(args.query, Some(query_str.to_string()));
         assert_eq!(args.table_name, "AllData"); // Default table name used
         // Check other defaults
@@ -376,7 +375,7 @@ mod tests_args {
         let path_str = "config.json";
         let args = Arguments::parse_from(["polars-view", "-e", path_str]); // Just the path and remove flag
 
-        assert_eq!(args.path, test_path(path_str));
+        assert_eq!(args.path, Some(test_path(path_str)));
         assert!(args.exclude_null_cols); // Flag sets it to true
         // Check other defaults
         assert_eq!(args.delimiter, DEFAULT_CSV_DELIMITER);

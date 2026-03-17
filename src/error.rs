@@ -43,6 +43,10 @@ pub enum PolarsViewError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
+    // Erros de inicialização
+    #[error("Initialization error: {0}")]
+    Initialization(String),
+
     // --- End Regex Errors ---
     #[error("Invalid value for command-line argument '{arg_name}': {reason}")]
     InvalidArgument {
