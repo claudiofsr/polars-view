@@ -251,6 +251,9 @@ impl PolarsViewApp {
 
     /// Centralized logic to initiate data loading from a filesystem path.
     fn load_file_from_path(&mut self, path: std::path::PathBuf, ctx: &Context) {
+        // Garantir que o caminho seja absoluto para evitar problemas de contexto
+        let path = std::fs::canonicalize(&path).unwrap_or(path);
+
         tracing::info!(target: "polars_view", "Loading path: {}", path.display());
 
         self.applied_filter
@@ -261,6 +264,9 @@ impl PolarsViewApp {
                     .load_data(self.applied_filter.clone(), self.applied_format.clone());
 
                 self.run_data_future(Box::new(Box::pin(future)), ctx);
+
+                // Limpa notificações antigas de erro se houver
+                self.notification = None;
             })
             .unwrap_or_else(|error| {
                 tracing::error!("Load failed for {:?}: {}", path, error);
@@ -268,6 +274,8 @@ impl PolarsViewApp {
                     message: format!("Error: {}\nPath: {}", error, path.display()),
                 }));
             });
+
+        ctx.request_repaint();
     }
 
     /// Handles the "Open File" action via native dialog.
