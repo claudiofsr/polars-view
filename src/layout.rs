@@ -301,6 +301,8 @@ impl PolarsViewApp {
         // Collect the first valid path if a drop occurred
         let dropped_path = ctx.input(|i| i.raw.dropped_files.iter().find_map(|f| f.path.clone()));
 
+        // tracing::info!(target: "polars_view", "File dropped path: {:?}", dropped_path);
+
         if let Some(path) = dropped_path {
             // Log with tracing (standard Rust idiomatic way)
             tracing::info!(target: "polars_view", "File dropped: {}", path.display());

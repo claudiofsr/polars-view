@@ -43,6 +43,8 @@ fn main() -> eframe::Result<()> {
         Box::new(move |creation_context| {
             // Create a new PolarsViewApp. If a path is provided, load the data.
             let app = if args.path.is_file() {
+                tracing::info!(target: "polars_view", "Loading path: {}", args.path.display());
+
                 // Create data filters from command line arguments
                 let data_filter = DataFilter::new(&args)?;
 
