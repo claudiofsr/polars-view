@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.53.4"
+version = "0.53.5"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -9,7 +9,7 @@ license = "MIT"
 authors = [
     "Claudio Fernandes de Souza Rodrigues <claudiofsrodrigues@gmail.com>",
 ]
-rust-version = "1.90"
+rust-version = "1.92"
 description = "A fast and interactive viewer for CSV, Json and Parquet data."
 keywords = [
     "csv",
@@ -24,17 +24,17 @@ keywords = [
 anstyle = "1.0" # Used by clap color
 cfg-if = "1.0"
 clap = { version = "4.6", features = ["color", "derive"] }
-eframe = { version = "0.33", features = ["persistence"] }
-egui_extras = { version = "0.33", features = ["serde"] }
+eframe = { version = "0.34", features = ["persistence"] }
+egui_extras = { version = "0.34", features = ["serde"] }
 regex = "1.12"
 rfd = { version ="0.17", features = ["file-handle-inner"] }
 thiserror = "2.0"
-tokio = { version = "1.50", features = ["full", "macros"] }
+tokio = { version = "1.52", features = ["full", "macros"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
 [dependencies.egui]
-version = "0.33"
+version = "0.34"
 features = [
     "persistence",  # Enable persistence of memory (window positions etc).
     "rayon",        # Enable parallel tessellation using rayon.
@@ -69,9 +69,6 @@ tempfile = "3.27"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
-
-[lints.rust]
-unsafe_code = "forbid"
 
 [features]
 default = ["format-simple"]

@@ -5,8 +5,7 @@ use crate::{
 
 use egui::{
     CentralPanel, Color32, Context, FontId, Frame, Grid, Key, KeyboardShortcut, Layout, MenuBar,
-    Modifiers, RichText, ScrollArea, SidePanel, Stroke, TopBottomPanel, ViewportCommand,
-    style::Visuals,
+    Modifiers, Panel, RichText, ScrollArea, Stroke, ViewportCommand, style::Visuals,
 };
 use std::{future::Future, sync::Arc};
 use tokio::sync::oneshot::{self, Receiver, error::TryRecvError};
@@ -55,7 +54,7 @@ pub struct PolarsViewApp {
     pub file_info: Option<FileInfo>,
 
     /// Optional Notification window for displaying errors or settings dialogs.
-    pub notification: Option<Box<dyn Notification>>,
+    pub notification: Option<Box<dyn Notification + 'static>>,
 
     /// Tokio runtime instance for managing asynchronous operations.
     runtime: tokio::runtime::Runtime,
@@ -133,7 +132,7 @@ impl PolarsViewApp {
     }
 
     /// Checks the `oneshot` channel (`pipe`) for the result of a pending async data operation.
-    /// This function is called repeatedly in the `update` loop.
+    /// This function is called repeatedly in the `logic` loop.
     ///
     /// Returns:
     /// - `true`: If an operation is still pending (channel was empty).
@@ -233,7 +232,7 @@ impl PolarsViewApp {
             // Ignore the result of `send`; if it fails, the receiver (`pipe`) was dropped,
             // which `check_data_pending` handles anyway.
             if tx.send(data).is_err() {
-                // Log if the receiver was dropped before sending - indicates UI might have closed/restarted.
+                // Log if the receiver was dropped before sending.
                 error!("Receiver dropped before data could be sent from async task.");
             }
 
@@ -243,7 +242,7 @@ impl PolarsViewApp {
             ctx_clone.request_repaint();
         });
 
-        // Store the task handle (optional, mainly for potential future management).
+        // Store the task handle.
         self.tasks.push(handle);
     }
 
@@ -251,7 +250,6 @@ impl PolarsViewApp {
 
     /// Centralized logic to initiate data loading from a filesystem path.
     fn load_file_from_path(&mut self, path: std::path::PathBuf, ctx: &Context) {
-        // Garantir que o caminho seja absoluto para evitar problemas de contexto
         let path = std::fs::canonicalize(&path).unwrap_or(path);
 
         tracing::info!(target: "polars_view", "Loading path: {}", path.display());
@@ -265,7 +263,6 @@ impl PolarsViewApp {
 
                 self.run_data_future(Box::new(Box::pin(future)), ctx);
 
-                // Limpa notificações antigas de erro se houver
                 self.notification = None;
             })
             .unwrap_or_else(|error| {
@@ -279,9 +276,6 @@ impl PolarsViewApp {
     }
 
     /// Handles the "Open File" action via native dialog.
-    ///
-    /// Blocks the UI thread while the dialog is open, which is standard behavior
-    /// for modal file pickers.
     fn handle_open_file(&mut self, ctx: &Context) {
         match self.runtime.block_on(open_file()) {
             Ok(path) => self.load_file_from_path(path, ctx),
@@ -373,19 +367,15 @@ impl PolarsViewApp {
 
     // --- UI Rendering Methods ---
 
-    /// Renders the top menu bar (`TopBottomPanel`).
-    fn render_menu_bar(&mut self, ctx: &Context) {
-        TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // Use egui's built-in menu bar layout.
-            MenuBar::new().ui(ui, |ui| {
-                // Arrange menu buttons horizontally.
-                ui.horizontal(|ui| {
-                    self.render_file_menu(ui); // "File" menu
-                    self.render_help_menu(ui); // "Help" menu
-                    // Add space and theme switch aligned to the right.
-                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        self.render_theme(ui);
-                    });
+    /// Renders the top menu bar (`Panel::top`).
+    fn render_menu_bar(&mut self, ui: &mut egui::Ui) {
+        MenuBar::new().ui(ui, |ui| {
+            ui.horizontal(|ui| {
+                self.render_file_menu(ui); // "File" menu
+                self.render_help_menu(ui); // "Help" menu
+                // Add space and theme switch aligned to the right.
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    self.render_theme(ui);
                 });
             });
         });
@@ -462,15 +452,12 @@ impl PolarsViewApp {
     /// Renders the "Help" menu contents.
     fn render_help_menu(&mut self, ui: &mut egui::Ui) {
         ui.menu_button("Help", |ui| {
-            // Link to documentation.
             let url = "https://docs.rs/polars-view";
             ui.hyperlink_to("Documentation", url).on_hover_text(url);
 
             ui.separator();
 
-            // "About" submenu.
             ui.menu_button("About", |ui| {
-                // Display application info within a styled Frame.
                 Frame::default()
                     .stroke(Stroke::new(1.0, Color32::GRAY))
                     .outer_margin(2.0)
@@ -484,12 +471,11 @@ impl PolarsViewApp {
 
                         // Use a Grid for structured layout.
                         Grid::new("about_grid")
-                            .num_columns(1) // Single column layout.
-                            .spacing([10.0, 8.0]) // Tighter spacing.
+                            .num_columns(1)
+                            .spacing([10.0, 8.0])
                             .show(ui, |ui| {
-                                ui.set_min_width(400.0); // Enforce minimum width.
+                                ui.set_min_width(400.0);
 
-                                // Centered Title
                                 ui.with_layout(Layout::top_down(egui::Align::Center), |ui| {
                                     ui.label(
                                         RichText::new(name)
@@ -508,7 +494,6 @@ impl PolarsViewApp {
                                 ui.separator();
                                 ui.end_row();
 
-                                // Links - Use horizontal layouts for label + link.
                                 ui.horizontal(|ui| {
                                     ui.label("Powered by");
                                     let url = "https://github.com/pola-rs/polars";
@@ -544,7 +529,7 @@ impl PolarsViewApp {
     /// Renders the Light/Dark theme selection radio buttons.
     fn render_theme(&mut self, ui: &mut egui::Ui) {
         // Determine current theme.
-        let mut dark_mode = ui.ctx().style().visuals.dark_mode; // Get boolean dark_mode state.
+        let mut dark_mode = ui.ctx().global_style().visuals.dark_mode; // Get boolean dark_mode state.
 
         // Use radio buttons to select the theme.
         // The `radio_value` function updates the `dark_mode` variable directly if clicked.
@@ -558,196 +543,151 @@ impl PolarsViewApp {
             .on_hover_text("Light Theme")
             .changed();
 
-        // If the theme selection changed, apply the new visuals.
         if dark_changed {
-            ui.ctx().set_style_init(Visuals::dark()); // Switch to dark theme.
+            ui.ctx().set_style_init(Visuals::dark());
         }
 
         if light_changed {
-            ui.ctx().set_style_init(Visuals::light()); // Switch to light theme.
+            ui.ctx().set_style_init(Visuals::light());
         }
     }
 
-    /// Renders the left side panel containing collapsible sections for configuration and info.
-    fn render_side_panel(&mut self, ctx: &Context) {
-        SidePanel::left("side_panel")
-            .resizable(true)
-            .default_width(300.0)
-            .show(ctx, |ui| {
-                // Use a ScrollArea in case content exceeds panel height.
-                ScrollArea::vertical().show(ui, |ui| {
-                    // --- Info Section ---
-                    // Only show if file_info is available.
-                    if let Some(file_info) = &self.file_info {
-                        ui.collapsing("Info", |ui| {
-                            file_info.render_metadata(ui); // Delegate rendering to FileInfo.
-                        });
-                    }
-
-                    // --- Format Section ---
-                    ui.collapsing("Format", |ui| {
-                        // Render format UI. `render_format` updates `self.applied_format`
-                        // and signals if a change occurred.
-                        if let Some(new_format) = self.applied_format.render_format(ui) {
-                            tracing::debug!("render_side_panel: Format change detected.");
-                            if let Some(data_container) = &self.data_container {
-                                // Create the async future to apply the format change.
-                                let future =
-                                    data_container.as_ref().clone().update_format(new_format);
-
-                                // Schedule the async update using the standard mechanism.
-                                self.run_data_future(Box::new(Box::pin(future)), ctx);
-                            }
-                        }
-                    });
-
-                    // --- Query Section ---
-                    ui.collapsing("Query", |ui| {
-                        // Render query UI. `render_query` updates `self.applied_filter`
-                        // and signals if a change occurred triggering a load/requery.
-                        if let Some(new_filter) = self.applied_filter.render_query(ui) {
-                            tracing::debug!("render_side_panel: Filter change detected.");
-                            if let Some(data_container) = &self.data_container {
-                                // Create the async future to apply the filter change.
-                                let future = data_container.as_ref().clone().load_data(
-                                    new_filter,                  // The changed filter state.
-                                    self.applied_format.clone(), // Keep the current format.
-                                );
-                                // Schedule the async reload/requery.
-                                self.run_data_future(Box::new(Box::pin(future)), ctx);
-                            }
-                        }
-                    });
-
-                    // --- Columns Section ---
-                    // Only show if file_info (which contains schema) is available.
-                    if let Some(file_info) = &self.file_info {
-                        ui.collapsing("Columns", |ui| {
-                            file_info.render_schema(ui); // Delegate rendering to FileInfo.
-                        });
-                    }
+    /// Renders the left side panel content.
+    fn render_side_panel_content(&mut self, ui: &mut egui::Ui) {
+        ScrollArea::vertical().show(ui, |ui| {
+            if let Some(file_info) = &self.file_info {
+                ui.collapsing("Info", |ui| {
+                    file_info.render_metadata(ui);
                 });
-            });
-    }
+            }
 
-    /// Renders the bottom status bar.
-    fn render_bottom_panel(&mut self, ctx: &Context) {
-        TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                // Display file path and sort status if data is loaded
-                if let Some(container) = &self.data_container {
-                    // Use lossy conversion as fallback for non-UTF8 paths
-                    ui.label(format!(
-                        "File: {}",
-                        container.filter.absolute_path.to_string_lossy()
-                    ));
-                    ui.separator();
-                    // Show how many columns are involved in the sort
-                    ui.label(format!("Sort: {} active criteria", container.sort.len()));
-                } else {
-                    ui.label("No file loaded."); // Default message
-                }
-
-                // Show spinner and text if an async operation is pending
-                if self.pipe.is_some() {
-                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.spinner();
-                        ui.label("Processing... "); // Indicate background work
-                    });
+            ui.collapsing("Format", |ui| {
+                if let Some(new_format) = self.applied_format.render_format(ui)
+                    && let Some(data_container) = &self.data_container
+                {
+                    let future = data_container.as_ref().clone().update_format(new_format);
+                    self.run_data_future(Box::new(Box::pin(future)), ui.ctx());
                 }
             });
+
+            ui.collapsing("Query", |ui| {
+                if let Some(new_filter) = self.applied_filter.render_query(ui)
+                    && let Some(data_container) = &self.data_container
+                {
+                    let future = data_container
+                        .as_ref()
+                        .clone()
+                        .load_data(new_filter, self.applied_format.clone());
+                    self.run_data_future(Box::new(Box::pin(future)), ui.ctx());
+                }
+            });
+
+            if let Some(file_info) = &self.file_info {
+                ui.collapsing("Columns", |ui| {
+                    file_info.render_schema(ui);
+                });
+            }
         });
     }
 
-    /// Renders the central panel, primarily displaying the data table.
-    /// Handles triggering the `apply_sort` async operation based on header clicks.
-    fn render_central_panel(&mut self, ctx: &Context) {
-        CentralPanel::default().show(ctx, |ui| {
-            egui::warn_if_debug_build(ui); // Debug build reminder overlay
+    /// Renders the bottom status bar content.
+    fn render_status_bar_content(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if let Some(container) = &self.data_container {
+                ui.label(format!(
+                    "File: {}",
+                    container.filter.absolute_path.to_string_lossy()
+                ));
+                ui.separator();
+                ui.label(format!("Sort: {} active criteria", container.sort.len()));
+            } else {
+                ui.label("No file loaded.");
+            }
 
-            // Check async task status BEFORE rendering UI potentially disabled by it
-            let is_pending = self.check_data_pending();
-
-            // Disable central panel interaction while loading/sorting/etc.
-            ui.add_enabled_ui(!is_pending, |ui| {
-                match &self.data_container {
-                    Some(data_container) => {
-                        // Variable to capture the new sort criteria requested by header clicks
-                        let mut opt_new_sort_criteria: Option<Vec<SortBy>> = None;
-
-                        // Use horizontal scroll area for wide tables
-                        ScrollArea::horizontal()
-                            .id_salt("central_scroll") // Add ID for state persistence
-                            .auto_shrink([false, false]) // Don't shrink if content fits
-                            .show(ui, |ui| {
-                                // `render_table` handles drawing and captures header interactions.
-                                // Returns `Some(Vec<SortBy>)` if a click occurred
-                                // that modified the sort order (add, remove, change direction).
-                                opt_new_sort_criteria = data_container.render_table(ui);
-                            });
-
-                        // --- Handle Sort Action Triggered from Table Header ---
-                        if let Some(new_criteria) = opt_new_sort_criteria {
-                            // A header click signaled a request to change the sort state.
-                            tracing::debug!(
-                                "render_central_panel: Sort action requested by header click. Triggering apply_sort. New criteria: {:#?}",
-                                new_criteria // Log the requested criteria
-                            );
-
-                            // Trigger the `apply_sort` async operation.
-                            // This handles both applying new sorts and resetting (if new_criteria is empty).
-                            let future = data_container.as_ref().clone().apply_sort(
-                                new_criteria,          // Pass the new requested sort criteria Vec
-                            );
-                            self.run_data_future(Box::new(Box::pin(future)), ctx);
-                        }
-                    }
-                    None => { // No data container is loaded
-                        ui.centered_and_justified(|ui| {
-                            if is_pending {
-                                ui.spinner(); // Show loading indicator if async task is running
-                            } else {
-                                // Show help message if idle and no data
-                                ui.label("Open a file (File > Open or Ctrl+O) or drag & drop CSV, JSON, or Parquet files here.");
-                            }
-                        });
-                    }
-                }
-            }); // End of add_enabled_ui block
-        }); // End CentralPanel
+            if self.pipe.is_some() {
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.spinner();
+                    ui.label("Processing... ");
+                });
+            }
+        });
     }
 }
 
 // --- eframe::App Implementation ---
 
 impl eframe::App for PolarsViewApp {
-    /// The main update function called by `eframe` on each frame (the "render loop").
-    /// Responsible for handling events, updating state, and drawing the UI.
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        // 1. Essential UI state checks
-        self.check_notification(ctx);
-
-        // 2. Handle Drag-and-Drop
-        // On Wayland, it's important to check this every frame.
+    /// Non-UI logic updates: handles events, async tasks, and shortcuts.
+    fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        // 1. Handle Drag-and-Drop
         self.handle_dropped_files(ctx);
 
-        // 3. Handle global keyboard shortcuts *before* drawing UI elements that might consume input.
+        // 2. Handle global keyboard shortcuts
         self.handle_shortcuts(ctx);
+    }
 
-        // 4. Define the main UI layout using `egui` panels.
-        // The order matters: Top/Bottom/Left/Right panels are defined *before* the CentralPanel.
+    /// Primary UI rendering loop.
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // Clone context for use in closures to satisfy the borrow checker
+        let ctx = ui.ctx().clone();
 
-        // 4a. Top panel for the menu bar.
-        self.render_menu_bar(ctx);
+        // Check visual notifications
+        self.check_notification(&ctx);
 
-        // 4b. Left side panel for configuration (Filters, Format) and info (Info, Columns).
-        self.render_side_panel(ctx);
+        // Define top panel layout
+        Panel::top("top_panel").show_inside(ui, |ui| {
+            self.render_menu_bar(ui);
+        });
 
-        // 4c. Bottom panel for displaying status info (e.g., loaded file path).
-        self.render_bottom_panel(ctx);
+        // Define bottom panel layout
+        Panel::bottom("bottom_panel").show_inside(ui, |ui| {
+            self.render_status_bar_content(ui);
+        });
 
-        // 4d. Central panel: The main content area, primarily for the data table.
-        // Must be added *last*.
-        self.render_central_panel(ctx);
+        // Define left side panel layout
+        Panel::left("side_panel")
+            .resizable(true)
+            .default_size(300.0)
+            .show_inside(ui, |ui| {
+                self.render_side_panel_content(ui);
+            });
+
+        // Define central panel content
+        CentralPanel::default().show_inside(ui, |ui| {
+            egui::warn_if_debug_build(ui);
+
+            let is_pending = self.check_data_pending();
+
+            ui.add_enabled_ui(!is_pending, |ui| {
+                match &self.data_container {
+                    Some(data_container) => {
+                        // Variable to capture the new sort criteria requested by header clicks
+                        let mut opt_new_sort_criteria: Option<Vec<SortBy>> = None;
+
+                        ScrollArea::horizontal()
+                            .id_salt("central_scroll")
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                opt_new_sort_criteria = data_container.render_table(ui);
+                            });
+
+                        if let Some(new_criteria) = opt_new_sort_criteria {
+                            tracing::debug!("Sort action requested. New criteria: {:#?}", new_criteria);
+                            let future = data_container.as_ref().clone().apply_sort(new_criteria);
+                            self.run_data_future(Box::new(Box::pin(future)), ui.ctx());
+                        }
+                    }
+                    None => {
+                        ui.centered_and_justified(|ui| {
+                            if is_pending {
+                                ui.spinner();
+                            } else {
+                                ui.label("Open a file (File > Open or Ctrl+O) or drag & drop CSV, JSON, or Parquet files here.");
+                            }
+                        });
+                    }
+                }
+            });
+        });
     }
 }

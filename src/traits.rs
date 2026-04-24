@@ -66,7 +66,7 @@ impl MyStyle for Context {
         };
 
         // 4. Set the style on the egui Context.
-        self.set_style(style);
+        self.set_global_style(style);
     }
 }
 
