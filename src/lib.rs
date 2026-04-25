@@ -38,15 +38,16 @@ pub use self::{
     traits::*,
 };
 
-// https://crates.io/crates/cfg-if
-cfg_if::cfg_if! {
-    // Use simple or special format.
-    // A special format is applied to the "Alíquota" (Tax Rate) column.
-    if #[cfg(feature = "format-special")] {
+// Use simple or special format.
+// A special format is applied to the "Alíquota" (Tax Rate) column.
+cfg_select! {
+    // Se a feature "format-special" estiver ativa
+    feature = "format-special" => {
         mod decimal_and_layout_v2;
         pub use decimal_and_layout_v2::*;
-    } else {
-        // default: "simple"
+    }
+    // default: "simple"
+    _ => {
         mod decimal_and_layout_v1;
         pub use decimal_and_layout_v1::*;
     }

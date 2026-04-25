@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.53.5"
+version = "0.53.6"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -9,7 +9,7 @@ license = "MIT"
 authors = [
     "Claudio Fernandes de Souza Rodrigues <claudiofsrodrigues@gmail.com>",
 ]
-rust-version = "1.92"
+rust-version = "1.95"
 description = "A fast and interactive viewer for CSV, Json and Parquet data."
 keywords = [
     "csv",
@@ -22,7 +22,6 @@ keywords = [
 [dependencies]
 # Main application dependencies
 anstyle = "1.0" # Used by clap color
-cfg-if = "1.0"
 clap = { version = "4.6", features = ["color", "derive"] }
 eframe = { version = "0.34", features = ["persistence"] }
 egui_extras = { version = "0.34", features = ["serde"] }
