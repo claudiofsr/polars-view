@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.53.6"
+version = "0.53.7"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
