@@ -25,7 +25,7 @@ This project is inspired by and initially forked from the [parqbench](https://gi
         - `⬇`:  Descending, Nulls Last
         - `⬆`:  Ascending, Nulls Last
         - `↕`:  Back to Not Sorted
-        
+
         *(Numbers indicate sort precedence if multiple columns are sorted)*
     *   **Customizable Header:** Toggle visual style ("Enhanced Header"), adjust vertical padding ("Header Padding").
     *   **Column Sizing:** Choose automatic content-based sizing ("Auto Col Width": true) or faster fixed initial widths ("Auto Col Width": false). Manually resize columns by dragging separators.

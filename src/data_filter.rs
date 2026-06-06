@@ -342,7 +342,7 @@ impl DataFilter {
                 .finish()?; // Returns PolarsResult<LazyFrame> (this finish() isn't the main blocking part)
 
             // Collect the lazy frame - THIS IS THE BLOCKING PART
-            lazyframe.with_new_streaming(true).collect() // Returns PolarsResult<DataFrame>
+            lazyframe.with_streaming(true).collect() // Returns PolarsResult<DataFrame>
         })
         .await?; // await the helper function
 
@@ -373,7 +373,7 @@ impl DataFilter {
             let lazyframe = LazyFrame::scan_parquet(pl_ref_path, args)?; // Returns PolarsResult<LazyFrame>
 
             // Collect into an eager DataFrame - THIS IS THE BLOCKING/COMPUTE PART.
-            lazyframe.with_new_streaming(true).collect() // Returns PolarsResult<DataFrame>
+            lazyframe.with_streaming(true).collect() // Returns PolarsResult<DataFrame>
         })
         .await?; // await the helper function
 
@@ -434,7 +434,7 @@ impl DataFilter {
 
                         // Execute the lazy plan and collect into an eager DataFrame on a blocking thread
                         let df = execute_polars_blocking(move || {
-                            lazyframe.with_new_streaming(true).collect()
+                            lazyframe.with_streaming(true).collect()
                         })
                         .await?;
 
@@ -1345,7 +1345,7 @@ long_id;value;text
         // Execute the lazy plan and collect into an eager DataFrame
         // *** WRAP COLLECT IN SPAWN_BLOCKING ***
         let df_output =
-            execute_polars_blocking(move || lazyframe.with_new_streaming(true).collect()).await?;
+            execute_polars_blocking(move || lazyframe.with_streaming(true).collect()).await?;
 
         println!("Output DF (Actual Read):\n{df_output}");
 
@@ -1409,7 +1409,7 @@ long_id;value;text
 
         // Execute the lazy plan and collect into an eager DataFrame
         // *** WRAP COLLECT IN SPAWN_BLOCKING ***
-        let df_output = spawn_blocking(move || lazyframe.with_new_streaming(true).collect())
+        let df_output = spawn_blocking(move || lazyframe.with_streaming(true).collect())
             .await
             .map_err(PolarsViewError::from)? // Convert Tokio JoinError to PolarsViewError
             .map_err(PolarsViewError::from)?; // Convert PolarsError to PolarsViewError

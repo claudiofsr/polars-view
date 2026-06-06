@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.53.7"
+version = "0.54.0"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -40,9 +40,9 @@ features = [
     "serde",        # Allow serialization using serde.
 ]
 
-# https://github.com/pola-rs/polars/releases/tag/rs-0.53.0
+# https://github.com/pola-rs/polars/releases/tag/rs-0.54.4
 [dependencies.polars]
-version = "0.53.0"
+version = "0.54.4"
 features = [
     "lazy",          # Lazy API
     "csv",           # Read CSV format
@@ -59,7 +59,7 @@ features = [
     "strings",       # Extra string utilities for Utf8Chunked
     "string_encoding",
     "temporal",      # Automatically try to parse dates/datetimes and time.
-    "new_streaming", # Be able to process datasets that are larger than RAM.
+    "streaming", # Be able to process datasets that are larger than RAM.
 ]
 
 [dev-dependencies]
