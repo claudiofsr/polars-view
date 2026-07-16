@@ -1052,7 +1052,7 @@ Example Patterns:
 
                 // Frame around the examples.
                 Frame::default()
-                    .stroke(Stroke::new(1.0, Color32::GRAY))
+                    .stroke(Stroke::new(1.0_f32, Color32::GRAY))
                     .outer_margin(2.0)
                     .inner_margin(10.0)
                     .show(ui, |ui| {

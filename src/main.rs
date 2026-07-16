@@ -28,7 +28,6 @@ fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         centered: true,
         persist_window: true,
-        vsync: true,
         viewport: egui::ViewportBuilder::default()
             .with_drag_and_drop(true)
             .with_active(true)

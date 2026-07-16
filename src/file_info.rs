@@ -30,7 +30,7 @@ impl FileInfo {
     /// Renders the file file_info (row count, column count) to the UI.
     pub fn render_metadata(&self, ui: &mut Ui) {
         Frame::default()
-            .stroke(Stroke::new(1.0, Color32::GRAY))
+            .stroke(Stroke::new(1.0_f32, Color32::GRAY))
             .outer_margin(2.0)
             .inner_margin(10.0)
             .show(ui, |ui| {

@@ -21,11 +21,11 @@ use std::{collections::HashSet, ffi::OsStr, hash::Hash, path::Path};
 /// Overrides default `egui` font sizes for different logical text styles (Heading, Body, etc.).
 /// Used by `MyStyle::set_style_init`.
 pub const CUSTOM_TEXT_STYLE: [(egui::TextStyle, egui::FontId); 5] = [
-    (Heading, FontId::new(18.0, Proportional)),
-    (Body, FontId::new(16.0, Proportional)),
-    (Button, FontId::new(16.0, Proportional)),
-    (Monospace, FontId::new(16.0, Proportional)), // Adjusted size for Proportional font
-    (Small, FontId::new(14.0, Proportional)),
+    (Heading, FontId::new(20.0, Proportional)),
+    (Body, FontId::new(18.0, Proportional)),
+    (Button, FontId::new(18.0, Proportional)),
+    (Monospace, FontId::new(18.0, Proportional)), // Adjusted size for Proportional font
+    (Small, FontId::new(16.0, Proportional)),
 ];
 
 /// A trait for applying custom styling to the `egui` context (`Context`).
@@ -131,7 +131,7 @@ impl Notification for Error {
                 // Add styled frame.
                 Frame::default()
                     .fill(Color32::from_rgb(255, 200, 200)) // Light red bg
-                    .stroke(Stroke::new(1.0, Color32::DARK_RED)) // Dark red border
+                    .stroke(Stroke::new(1.0_f32, Color32::DARK_RED)) // Dark red border
                     .inner_margin(10.0) // Add padding inside the frame, around the content.
                     .show(ui, |ui| {
                         ui.set_max_width(ui.available_width()); // Allow text to wrap within frame

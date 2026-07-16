@@ -459,7 +459,7 @@ impl PolarsViewApp {
 
             ui.menu_button("About", |ui| {
                 Frame::default()
-                    .stroke(Stroke::new(1.0, Color32::GRAY))
+                    .stroke(Stroke::new(1.0_f32, Color32::GRAY))
                     .outer_margin(2.0)
                     .inner_margin(10.0)
                     .show(ui, |ui| {
@@ -635,12 +635,12 @@ impl eframe::App for PolarsViewApp {
         self.check_notification(&ctx);
 
         // Define top panel layout
-        Panel::top("top_panel").show_inside(ui, |ui| {
+        Panel::top("top_panel").show(ui, |ui| {
             self.render_menu_bar(ui);
         });
 
         // Define bottom panel layout
-        Panel::bottom("bottom_panel").show_inside(ui, |ui| {
+        Panel::bottom("bottom_panel").show(ui, |ui| {
             self.render_status_bar_content(ui);
         });
 
@@ -648,12 +648,12 @@ impl eframe::App for PolarsViewApp {
         Panel::left("side_panel")
             .resizable(true)
             .default_size(300.0)
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 self.render_side_panel_content(ui);
             });
 
         // Define central panel content
-        CentralPanel::default().show_inside(ui, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             egui::warn_if_debug_build(ui);
 
             let is_pending = self.check_data_pending();
