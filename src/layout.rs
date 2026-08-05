@@ -290,20 +290,34 @@ impl PolarsViewApp {
         }
     }
 
-    /// Detects and processes files dropped onto the application window.
     fn handle_dropped_files(&mut self, ctx: &Context) {
-        // Collect the first valid path if a drop occurred
-        let dropped_path = ctx.input(|i| i.raw.dropped_files.iter().find_map(|f| f.path.clone()));
+        // 1. Extract the path safely and efficiently
+        let dropped_path = ctx.input(|i| {
+            i.raw.dropped_files.iter().find_map(|f| {
+                let p = f.path();
+
+                // Safety and validation checks:
+                // - Check if the path is not empty (important for portability)
+                // - Ensure it is a file (prevents attempting to open directories)
+                // - Check if the file exists on the filesystem
+                if !p.as_os_str().is_empty() && p.is_file() && p.exists() {
+                    Some(p.to_path_buf())
+                } else {
+                    None
+                }
+            })
+        });
 
         // tracing::info!(target: "polars_view", "File dropped path: {:?}", dropped_path);
 
+        // 2. If a valid path is found, process it
         if let Some(path) = dropped_path {
-            // Log with tracing (standard Rust idiomatic way)
-            tracing::info!(target: "polars_view", "File dropped: {}", path.display());
+            tracing::info!(target: "polars_view", "Processing dropped file: {}", path.display());
 
+            // Call the centralized loading function
             self.load_file_from_path(path, ctx);
 
-            // Request repaint ensures the UI updates to show loading state immediately
+            // Request a repaint to immediately show the loading state
             ctx.request_repaint();
         }
     }
