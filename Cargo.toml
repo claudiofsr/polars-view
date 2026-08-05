@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.54.4"
+version = "0.55.0"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -39,9 +39,9 @@ features = [
     "serde",        # Allow serialization using serde.
 ]
 
-# https://github.com/pola-rs/polars/releases/tag/rs-0.54.4
+# https://github.com/pola-rs/polars/releases/tag/rs-0.55.1
 [dependencies.polars]
-version = "0.54.4"
+version = "0.55.1"
 features = [
     "lazy",          # Lazy API
     "csv",           # Read CSV format
