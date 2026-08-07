@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.55.1"
+version = "0.55.2"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -41,7 +41,7 @@ features = [
 
 # https://github.com/pola-rs/polars/releases/tag/rs-0.55.1
 [dependencies.polars]
-version = "0.55.1"
+version = "0.55.2"
 features = [
     "lazy",          # Lazy API
     "csv",           # Read CSV format
