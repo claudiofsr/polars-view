@@ -166,38 +166,27 @@ pub trait SortableHeaderRenderer {
 }
 
 impl SortableHeaderRenderer for Ui {
-    /// Implements header rendering for `egui::Ui`. Displays icon (with optional index) and text label horizontally.
-    /// Icon/index is drawn centered within a pre-calculated sized container to minimize text shifting.
-    ///
-    /// ### Logic
-    /// 1. Get styling info: text color based on theme, combined icon/index string using `interaction_state.get_icon(sort_index)`. Define base `TextStyle`.
-    /// 2. Calculate size needed for the icon/index container using `calculate_icon_container_size_for_string` with a sample wide string (e.g., "10↕").
-    /// 3. Use `ui.horizontal` for the overall cell layout.
-    /// 4. Add a sized container (`ui.add_sized`) for the icon/index:
-    ///    - Inside the closure, draw a centered, clickable `Label` using the icon/index string from step 1.
-    ///    - Return the `Label`'s `Response` from the closure.
-    /// 5. Add hover text to the `Response` captured from `add_sized`.
-    /// 6. Add the column name `Label` (styling depends on `use_enhanced_style`).
-    /// 7. Return the icon/index label's `Response`.
     fn render_sortable_header(
         &mut self,
         column_name: &str,
-        interaction_state: &HeaderSortState, // Use the interaction enum
-        sort_index: Option<usize>,           // Receive the 0-based index
+        interaction_state: &HeaderSortState,
+        sort_index: Option<usize>,
         use_enhanced_style: bool,
     ) -> Response {
-        // 1. Get styling info and icon string.
+        // 1. Informações de estilo e string do ícone atual
         let column_name_color = get_column_header_text_color(self.visuals());
-        // Get icon possibly including index number (e.g., "1▲", "↕"). get_icon handles None index.
         let icon_string = interaction_state.get_icon(sort_index);
-        let text_style = TextStyle::Button; // Base style for consistency
+        let text_style = TextStyle::Button;
 
-        // 2. Calculate required container size for the potentially wider icon+index string.
-        let max_potential_icon_str = "99⇧"; // Estimate max width needed (adjust if sort criteria > 99 expected)
-        let icon_container_size =
-            calculate_icon_container_size_for_string(self, &text_style, max_potential_icon_str);
+        // 2. Calcula a largura do contêiner com base no maior tamanho real possível
+        //    (testando todos os 5 símbolos com 2 dígitos de precedência: 99)
+        let candidates = ["99↕", "99⏷", "99⏶", "99⬇", "99⬆"];
+        let icon_container_size = candidates
+            .iter()
+            .map(|sample| calculate_icon_container_size_for_string(self, &text_style, sample))
+            .fold(Vec2::ZERO, |acc, size| acc.max(size));
 
-        // 3. Use horizontal layout.
+        // 3. Layout horizontal
         let outer_response = self.horizontal_centered(|ui| {
             ui.style_mut().override_text_style = Some(text_style.clone());
             let msg1 = format!("Click to sort by: {column_name:#?}");
@@ -210,34 +199,51 @@ impl SortableHeaderRenderer for Ui {
             let msg8 = "    ⬆ Sort in Ascending order";
             let msg = [&msg1, "", msg2, msg3, msg4, msg5, msg6, msg7, msg8].join("\n");
 
-            // 4. Add sized container and draw the icon/index string inside.
+            // 4. Contêiner dimensionado com .extend() no Label para evitar reticências (...)
             let icon_response = ui
                 .add_sized(icon_container_size, |ui: &mut Ui| {
-                    // Draw centered label with combined icon/index, make it clickable.
                     ui.centered_and_justified(|ui| {
-                        ui.add(egui::Label::new(&icon_string).sense(Sense::click()))
+                        ui.add(
+                            egui::Label::new(&icon_string)
+                                .extend() // Impede truncamento com reticências
+                                .sense(Sense::click()),
+                        )
                     })
-                    .inner // Return the Label's Response
+                    .inner
                 })
-                // 5. Add hover text to the response from the sized container (which is the Label's response).
                 .on_hover_text(msg);
 
-            // 6. Add column name label.
+            // 5. Rótulo com o nome da coluna
             ui.add(if use_enhanced_style {
-                // Enhanced: Use color and enable text wrapping.
                 egui::Label::new(RichText::new(column_name).color(column_name_color)).wrap()
             } else {
-                // Simple: Default color, no explicit wrapping (might wrap based on outer container).
                 egui::Label::new(RichText::new(column_name))
             });
 
-            // Return the captured icon Response from the horizontal closure.
             icon_response
-        }); // End horizontal layout
+        });
 
-        // 7. Extract and return the icon's response from the horizontal layout's inner result.
         outer_response.inner
     }
+}
+
+/// Helper: Calcula a dimensão do contêiner para uma amostra de texto com margem de segurança.
+fn calculate_icon_container_size_for_string(
+    ui: &Ui,
+    text_style: &TextStyle,
+    sample_str: &str,
+) -> Vec2 {
+    let text_height = ui.text_style_height(text_style);
+
+    let max_width = {
+        let font_id = text_style.resolve(ui.style());
+        let galley = ui
+            .fonts_mut(|f| f.layout_no_wrap(sample_str.to_string(), font_id, Color32::PLACEHOLDER));
+        // Adiciona margem de segurança de 4.0 px para absorver variações de renderização/DPI
+        (galley.size().x + 4.0).ceil()
+    };
+
+    Vec2::new(max_width, text_height)
 }
 
 /// Helper: Determines header text color based on theme for contrast.
@@ -248,37 +254,6 @@ fn get_column_header_text_color(visuals: &Visuals) -> Color32 {
     } else {
         Color32::from_rgb(0, 80, 160) // Darker blue for light mode
     }
-}
-
-/// Helper: Calculates size needed for the icon container, using a sample string for max width.
-/// Ensures enough space for icons potentially combined with sort order index numbers.
-/// Called by `render_sortable_header`.
-///
-/// ### Logic
-/// 1. Get text height from the provided `TextStyle`.
-/// 2. Layout the `sample_str` using the `TextStyle`'s font to get its width.
-/// 3. Add a small horizontal buffer to the calculated width.
-/// 4. Return `Vec2` with buffered width and original height.
-fn calculate_icon_container_size_for_string(
-    ui: &Ui,
-    text_style: &TextStyle,
-    sample_str: &str,
-) -> Vec2 {
-    // 1. Get height.
-    let text_height = ui.text_style_height(text_style);
-
-    // 2. Calculate width based on the sample string.
-    let max_width = {
-        let font_id = text_style.resolve(ui.style());
-        // Layout the sample string to find its rendered width.
-        let galley = ui
-            .fonts_mut(|f| f.layout_no_wrap(sample_str.to_string(), font_id, Color32::PLACEHOLDER));
-        // 3. Add buffer.
-        (galley.size().x + 2.0).ceil() // Use ceiling to ensure enough space.
-    };
-
-    // 4. Return size.
-    Vec2::new(max_width, text_height)
 }
 
 /// Trait to extend `Path` with a convenient method for getting the lowercase file extension.

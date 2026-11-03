@@ -1,6 +1,6 @@
 [package]
 name = "polars-view"
-version = "0.55.4"
+version = "0.55.5"
 edition = "2024"
 repository = "https://github.com/claudiofsr/polars-view"
 homepage = "https://github.com/claudiofsr/polars-view"
@@ -34,9 +34,10 @@ tracing-subscriber = "0.3"
 [dependencies.egui]
 version = "0.37"
 features = [
-    "persistence",  # Enable persistence of memory (window positions etc).
-    "rayon",        # Enable parallel tessellation using rayon.
-    "serde",        # Allow serialization using serde.
+    "monochrome_emoji_fonts", # Garante a inclusão dos glifos NotoEmoji / emoji-icon-font
+    "persistence",            # Enable persistence of memory (window positions etc).
+    "rayon",                  # Enable parallel tessellation using rayon.
+    "serde",                  # Allow serialization using serde.
 ]
 
 # https://github.com/pola-rs/polars/releases/tag/rs-0.55.1
