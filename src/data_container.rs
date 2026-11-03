@@ -603,7 +603,7 @@ impl DataContainer {
         // **Key**: ID incorporates `auto_col_width`. Changing this flag results in a *different* ID,
         // forcing egui to discard cached layout state (like manually resized widths)
         // and recompute the layout using the new column sizing strategy.
-        let table_id = Id::new("data_table_view").with(self.format.auto_col_width);
+        let table_id = Id::unique("data_table_view").with(self.format.auto_col_width);
         tracing::trace!(
             "prepare_table_build_config: Using table_id: {:?} based on auto_col_width={}",
             table_id,

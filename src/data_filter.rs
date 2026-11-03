@@ -973,7 +973,7 @@ Example Patterns:
             }
 
             // 2. Get/Set selected tab index from Memory for persistence
-            let tab_id = ui.id().with("sql_query_tab_index");
+            let tab_id = ui.scope_id().with("sql_query_tab_index");
             let mut selected_tab_index =
                 ui.memory_mut(|mem| *mem.data.get_persisted_mut_or_default::<usize>(tab_id));
 
